@@ -23,6 +23,12 @@ config VIDEO_MI1040
         ---help---
           This is a driver for the Aptina mi1040 camera sensor
           for use with the tegra isp.
+		  
+config VIDEO_ICATCH7002A
+        tristate "ICATCH7002A isp support"
+        depends on I2C && ARCH_TEGRA
+        ---help---
+          This is a driver for the iCatch 7002A ISP
 
 config VIDEO_OV5650
         tristate "OV5650 camera sensor support"

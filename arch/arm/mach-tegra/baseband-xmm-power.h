@@ -40,6 +40,8 @@ struct baseband_power_platform_data {
 	enum baseband_type baseband_type;
 	struct platform_device* (*hsic_register)(struct platform_device *);
 	void (*hsic_unregister)(struct platform_device **);
+	struct platform_device* (*utmip_register)(void);
+	void (*utmip_unregister)(struct platform_device *);
 	struct platform_device *ehci_device;
 	union {
 		struct {
@@ -54,18 +56,17 @@ struct baseband_power_platform_data {
 		struct {
 			int bb_rst;
 			int bb_on;
+			int bb_vbat;
+			int bb_rst_ind;
+			int bb_vbus;
+			int bb_sw_sel;
+			int bb_sim_cd;
+			int bb_sar_det;
 			int ipc_bb_wake;
 			int ipc_ap_wake;
 			int ipc_hsic_active;
 			int ipc_hsic_sus_req;
-#ifdef CONFIG_MACH_GROUPER
-			int bb_vbat;
-			int bb_vbus;
-			int bb_sw_sel;
-			int sim_card_det;
-			int ipc_bb_rst_ind;
 			int ipc_bb_force_crash;
-#endif
 			struct platform_device *hsic_device;
 		} xmm;
 	} modem;
@@ -97,13 +98,15 @@ struct xmm_power_data {
 };
 
 enum baseband_xmm_powerstate_t {
-	BBXMM_PS_L0	= 0,
-	BBXMM_PS_L2	= 1,
-	BBXMM_PS_L0TOL2	= 2,
-	BBXMM_PS_L2TOL0	= 3,
-	BBXMM_PS_UNINIT	= 4,
-	BBXMM_PS_INIT	= 5,
-	BBXMM_PS_L3	= 6,
+	BBXMM_PS_UNINIT	= 0,
+	BBXMM_PS_INIT	= 1,
+	BBXMM_PS_L0	= 2,
+	BBXMM_PS_L0TOL2	= 3,
+	BBXMM_PS_L2	= 4,
+	BBXMM_PS_L2TOL0	= 5,
+	BBXMM_PS_L2TOL3	= 6,
+	BBXMM_PS_L3	= 7,
+	BBXMM_PS_L3TOL0	= 8,
 	BBXMM_PS_LAST	= -1,
 };
 
@@ -119,10 +122,7 @@ enum ipc_ap_wake_state_t {
 irqreturn_t xmm_power_ipc_ap_wake_irq(int value);
 
 void baseband_xmm_set_power_status(unsigned int status);
-#ifdef CONFIG_MACH_GROUPER
-int tegra_baseband_rail_on(void);
-int tegra_baseband_rail_off(void);
-#endif
+int baseband_modem_crash_dump(int enable);
 extern struct xmm_power_data xmm_power_drv_data;
 
 #endif  /* BASEBAND_XMM_POWER_H */

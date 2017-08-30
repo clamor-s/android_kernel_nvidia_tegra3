@@ -33,7 +33,7 @@
 #include <linux/suspend.h>
 #include <linux/debugfs.h>
 #include <linux/cpu.h>
-
+#include <mach/board-cardhu-misc.h>
 
 #include <mach/clk.h>
 #include <mach/edp.h>
@@ -55,9 +55,157 @@ static DEFINE_MUTEX(tegra_cpu_lock);
 static bool is_suspended;
 static int suspend_index;
 static unsigned int volt_capped_speed;
-
-
 static bool force_policy_max;
+
+int  gps_enable=0;
+
+static bool camera_enable = 0;
+static unsigned long camera_enable_cpu_emc_mini_rate = 0;
+static unsigned long camera_enable_emc_mini_rate = 0;
+
+int Asus_camera_enable_set_emc_rate(unsigned long rate)
+{
+	struct clk *c = NULL;
+	unsigned long camera_emc_enable_mini_rete = 0;
+	unsigned long cpu_emc_cur_rate = 0;
+	unsigned long emc_cur_rate = 0;
+
+	if(camera_enable) {
+		printk("%s : Not allow to call twice continuous\n", __func__);
+		return -1;
+	}
+
+	camera_emc_enable_mini_rete = rate;
+
+	c = tegra_get_clock_by_name("emc");
+
+	if (emc_clk == NULL){
+		emc_clk = clk_get_sys("cpu", "emc");
+		if (IS_ERR(emc_clk)) {
+			clk_put(cpu_clk);
+			return -1;
+		}
+	}
+
+	if(c) {
+		camera_enable_emc_mini_rate = c->min_rate;
+	}
+
+	cpu_emc_cur_rate = clk_get_rate(emc_clk);
+	emc_cur_rate = clk_get_rate(c);
+
+	printk("%s : camera enable emc_clk->min_rate to %lu\n",
+		__func__, camera_emc_enable_mini_rete);
+	camera_enable_cpu_emc_mini_rate = emc_clk->min_rate;
+	emc_clk->min_rate = camera_emc_enable_mini_rete;
+	c->min_rate = camera_emc_enable_mini_rete;
+
+	if(cpu_emc_cur_rate < emc_clk->min_rate ) {
+		clk_set_rate(emc_clk, camera_emc_enable_mini_rete);
+	}
+	if(emc_cur_rate < c->min_rate ) {
+		clk_set_rate(c, camera_emc_enable_mini_rete);
+	}
+
+	camera_enable = 1;
+
+	return 0;
+}
+
+int Asus_camera_disable_set_emc_rate(void)
+{
+	struct clk *c = NULL;
+	unsigned long cpu_emc_cur_rate = 0;
+	unsigned long emc_cur_rate = 0;
+
+	if(!camera_enable) {
+		printk("%s : not allow use this function indenpendently\n", __func__);
+		return -1;
+	}
+
+	c = tegra_get_clock_by_name("emc");
+
+	if (emc_clk == NULL) {
+		emc_clk = clk_get_sys("cpu", "emc");
+		if (IS_ERR(emc_clk)) {
+			clk_put(cpu_clk);
+			return -1;
+		}
+	}
+
+	cpu_emc_cur_rate = clk_get_rate(emc_clk);
+	emc_cur_rate = clk_get_rate(c);
+
+	printk("%s : camera disable emc_clk->min_rate to %lu\n", __func__, camera_enable_cpu_emc_mini_rate);
+	printk("%s : camera disable c->min_rate to %lu\n", __func__, camera_enable_emc_mini_rate);
+	emc_clk->min_rate = camera_enable_cpu_emc_mini_rate;
+	c->min_rate = camera_enable_emc_mini_rate;
+
+	camera_enable = 0;
+
+	return 0;
+}
+
+static int gps_state_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret = 0;
+	static struct clk *c=NULL;
+	static int emc_min_rate=0;
+	#define MINMIAM_RATE (204000000)
+	if (c==NULL)
+		c=tegra_get_clock_by_name("emc");
+
+	if(!emc_min_rate)
+		if(c){
+			emc_min_rate=c->min_rate;
+		}
+	if (emc_clk==NULL){
+		emc_clk = clk_get_sys("cpu", "emc");
+		if (IS_ERR(emc_clk)) {
+			clk_put(cpu_clk);
+			return PTR_ERR(emc_clk);
+		}
+	}
+
+	ret = param_set_int(arg, kp);
+	if (ret == 0) {
+				if (gps_enable){
+					if(emc_clk){
+						unsigned long	cpu_emc_cur_rate=clk_get_rate(emc_clk);
+						unsigned long	emc_cur_rate=clk_get_rate(c);
+						printk("tf201_gps_enable enable  c_cpu_emc->min_rate=%lu cur_rate=%lu c->min_rate=%lu %lu\n",emc_clk->min_rate,cpu_emc_cur_rate,c->min_rate,emc_cur_rate);
+						emc_clk->min_rate=MINMIAM_RATE;
+						c->min_rate=MINMIAM_RATE;
+						if(cpu_emc_cur_rate < emc_clk->min_rate ){
+							clk_set_rate(emc_clk,MINMIAM_RATE);
+							printk("tf201_gps_enable enable emc_clk cur_rate=%lu\n",clk_get_rate(emc_clk));
+						}
+						if(emc_cur_rate < c->min_rate ){
+							clk_set_rate(c,MINMIAM_RATE);
+							printk("tf201_gps_enable enable C cur_rate=%lu\n",clk_get_rate(c));
+						}
+					}//tegra_update_cpu_speed(620000);
+				}else{
+					if(emc_clk)
+						emc_clk->min_rate=0;
+					if(c)
+						c->min_rate=emc_min_rate;
+					printk("tf201_gps_enable disable\n");
+				}
+	}
+	return ret;
+}
+
+static int gps_state_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_int(buffer, kp);
+}
+
+static struct kernel_param_ops tf201_gps_state_ops = {
+	.set = gps_state_set,
+	.get = gps_state_get,
+};
+module_param_cb(gps_start, &tf201_gps_state_ops, &gps_enable, 0644);
 
 static int force_policy_max_set(const char *arg, const struct kernel_param *kp)
 {

@@ -40,6 +40,7 @@
 #include <mach/gpio-tegra.h>
 #include <mach/pinmux-tegra30.h>
 #include <mach/hardware.h>
+#include <mach/board-cardhu-misc.h>
 
 #include "gpio-names.h"
 #include "board.h"
@@ -168,6 +169,7 @@ static struct regulator_consumer_supply tps6591x_ldo5_supply_e1198[] = {
 static struct regulator_consumer_supply tps6591x_ldo6_supply_0[] = {
 	REGULATOR_SUPPLY("avdd_dsi_csi", NULL),
 	REGULATOR_SUPPLY("pwrdet_mipi", NULL),
+	REGULATOR_SUPPLY("vddio_hsic", NULL),
 };
 static struct regulator_consumer_supply tps6591x_ldo7_supply_0[] = {
 	REGULATOR_SUPPLY("avdd_plla_p_c_s", NULL),
@@ -491,24 +493,14 @@ int __init cardhu_regulator_init(void)
 		pr_info("VSEL 1:0 %d%d\n",
 			tps62361_pdata.vsel1_def_state,
 			tps62361_pdata.vsel0_def_state);
-	} else if (board_info.board_id == BOARD_PM315) {
-		/* On PM315, SATA rails are on LDO1 */
-		pdata_ldo1_0.regulator.num_consumer_supplies =
-					ARRAY_SIZE(tps6591x_ldo1_supply_pm315);
-		pdata_ldo1_0.regulator.consumer_supplies =
-					tps6591x_ldo1_supply_pm315;
-		pdata_ldo2_0.regulator.num_consumer_supplies = 0;
-		pdata_ldo2_0.regulator.consumer_supplies = NULL;
-	}
+		}
 
-	if (((board_info.board_id == BOARD_E1291) ||
-	     (board_info.board_id == BOARD_PM315)) &&
+	if ((board_info.board_id == BOARD_E1291) &&
 		(board_info.sku & SKU_DCDC_TPS62361_SUPPORT))
 		ext_core_regulator = true;
 
 	if ((board_info.board_id == BOARD_E1198) ||
-		(board_info.board_id == BOARD_E1291) ||
-		(board_info.board_id == BOARD_PM315)) {
+		(board_info.board_id == BOARD_E1291)) {
 		if (ext_core_regulator) {
 			tps_platform.num_subdevs =
 					ARRAY_SIZE(tps_devs_e1198_skubit0_1);
@@ -532,12 +524,17 @@ int __init cardhu_regulator_init(void)
 		}
 	}
 
-	/* E1291-A04/A05: Enable DEV_SLP and enable sleep on GPIO2 */
-	if (((board_info.board_id == BOARD_E1291)  ||
-	     (board_info.board_id == BOARD_PM315)) &&
+   /*
+	 *E1291-A04/A05/A07 or PM269-alike:
+	 *	Enable DEV_SLP and enable sleep on GPIO2
+	 */
+	if ((board_info.board_id == BOARD_PM269) ||
+		((board_info.board_id == BOARD_E1291) &&
 			((board_info.fab == BOARD_FAB_A04) ||
 			 (board_info.fab == BOARD_FAB_A05) ||
-			 (board_info.fab == BOARD_FAB_A07))) {
+			 (board_info.fab == BOARD_FAB_A07)))) {
+		pr_info("TPS6591x GPIO2 was reprogrammed to follow state of "
+			"SLEEP input\n");
 		tps_platform.dev_slp_en = true;
 		tps_platform.gpio_init_data = tps_gpio_pdata_e1291_a04;
 		tps_platform.num_gpioinit_data =
@@ -807,7 +804,8 @@ FIXED_REG(13, en_1v8_cam,	en_1v8_cam,	tps6591x_rails(VIO),		0,      0,      TEGR
 FIXED_REG(14, dis_5v_switch_e118x,	dis_5v_switch,	FIXED_SUPPLY(en_5v0), 	0,      0,      TEGRA_GPIO_PX2,		false,	0, 5000);
 
 /* E1291-A04/A05 specific */
-FIXED_REG(1, en_5v0_a04,	en_5v0,		NULL,				0,      0,      TPS6591X_GPIO_8,	true,	0, 5000);
+FIXED_REG(1, en_5v0_a04,	en_5v0,		NULL,				1,      0,      TPS6591X_GPIO_8,	true,	1, 5000);
+FIXED_REG(1, en_5v0_me301,	en_5v0,		NULL,				1,      0,      TPS6591X_GPIO_8,	true,	1, 5000);
 FIXED_REG(2, en_ddr_a04,	en_ddr,		NULL,				1,      0,      TPS6591X_GPIO_7,	true,	1, 1500);
 FIXED_REG(3, en_3v3_sys_a04,	en_3v3_sys,	NULL,				0,      0,      TPS6591X_GPIO_6,	true,	1, 3300);
 
@@ -920,6 +918,20 @@ FIXED_REG(22, en_battery,	en_battery,	NULL, 	1,      1,      -1,	true,	1, 5000);
 	ADD_FIXED_REG(en_usb3_vbus_oc_e118x),	\
 	ADD_FIXED_REG(en_vddio_vid_oc_pm269),
 
+#define PM269_FIXED_REG_ME301				\
+	ADD_FIXED_REG(en_5v_cp),		\
+	ADD_FIXED_REG(en_5v0_me301),		\
+	ADD_FIXED_REG(en_ddr_a04),		\
+	ADD_FIXED_REG(en_3v3_sys_a04),		\
+	ADD_FIXED_REG(en_3v3_modem),		\
+	ADD_FIXED_REG(cam1_ldo_en),		\
+	ADD_FIXED_REG(cam3_ldo_en),		\
+	ADD_FIXED_REG(en_vdd_com),		\
+	ADD_FIXED_REG(en_3v3_fuse_pm269),	\
+	ADD_FIXED_REG(en_3v3_emmc),		\
+	ADD_FIXED_REG(en_1v8_cam),		\
+	ADD_FIXED_REG(en_usb1_vbus_oc_e118x),
+	
 #define PM311_FIXED_REG				\
 	ADD_FIXED_REG(en_5v_cp),		\
 	ADD_FIXED_REG(en_5v0),			\
@@ -1044,6 +1056,11 @@ static struct platform_device *fixed_reg_devs_pm269[] = {
 	E1247_DISPLAY_FIXED_REG
 };
 
+static struct platform_device *fixed_reg_devs_pm269_me301[] = {
+	PM269_FIXED_REG_ME301
+	E1247_DISPLAY_FIXED_REG
+};
+
 static struct platform_device *fixed_reg_devs_pm269_dsi[] = {
 	PM269_FIXED_REG
 	E1247_DSI_DISPLAY_FIXED_REG
@@ -1109,6 +1126,7 @@ int __init cardhu_fixed_regulator_init(void)
 	struct board_info display_board_info;
 	struct platform_device **fixed_reg_devs;
 	int    nfixreg_devs;
+	unsigned int project_id = tegra3_get_project_id();
 
 	if (!machine_is_cardhu())
 		return 0;
@@ -1148,10 +1166,7 @@ int __init cardhu_fixed_regulator_init(void)
 			fixed_reg_devs = fixed_reg_devs_e1198_base;
 		}
 		break;
-	case BOARD_PM315:
-		nfixreg_devs = ARRAY_SIZE(fixed_reg_devs_pm315);
-		fixed_reg_devs = fixed_reg_devs_pm315;
-		break;
+		
 	case BOARD_PM311:
 	case BOARD_PM305:
 		nfixreg_devs = ARRAY_SIZE(fixed_reg_devs_pm311);
@@ -1176,9 +1191,19 @@ int __init cardhu_fixed_regulator_init(void)
 			nfixreg_devs = ARRAY_SIZE(fixed_reg_devs_pm269_dsi);
 			fixed_reg_devs = fixed_reg_devs_pm269_dsi;
 		} else {
+
+			if(TEGRA3_PROJECT_ME301T != project_id)
+			{
 			nfixreg_devs = ARRAY_SIZE(fixed_reg_devs_pm269);
 			fixed_reg_devs = fixed_reg_devs_pm269;
-		}
+			}
+			else
+			{
+				nfixreg_devs = ARRAY_SIZE(fixed_reg_devs_pm269_me301);
+				fixed_reg_devs = fixed_reg_devs_pm269_me301;
+			}
+
+		}							
 		break;
 
 	default:
@@ -1280,6 +1305,8 @@ int __init cardhu_suspend_init(void)
 			cardhu_suspend_data.lp1_core_volt_high = 0x50;
 		}
 #endif
+		if (is_display_board_dsi(display_board_info.board_id))
+			cardhu_suspend_data.cpu_wake_freq = CPU_WAKE_FREQ_LOW;
 	case BOARD_PM305:
 	case BOARD_PM311:
 		break;
@@ -1307,25 +1334,43 @@ int __init cardhu_suspend_init(void)
 
 int __init cardhu_edp_init(void)
 {
-	unsigned int regulator_mA;
+	
+	unsigned int project_id = tegra3_get_project_id();
+	unsigned int current_mA = 0;
 
-	regulator_mA = get_maximum_cpu_current_supported();
-	if (!regulator_mA) {
-		if (tegra_get_chipid() == TEGRA_CHIPID_TEGRA3) {
-			if (tegra_get_minor_rev() == 0x03) /* T33 */
-				regulator_mA = 10000;
-			else
-				regulator_mA = 6000; /* regular T30/s */
-		}
+	switch (project_id) {
+	case TEGRA3_PROJECT_TF201:
+		current_mA = 5000;
+		break;
+	case TEGRA3_PROJECT_TF300T:
+	case TEGRA3_PROJECT_TF300TG:
+	case TEGRA3_PROJECT_TF300TL:
+	case TEGRA3_PROJECT_TF500T:
+	case TEGRA3_PROJECT_ME301T:
+	case TEGRA3_PROJECT_ME301TL:
+		current_mA = 6000;
+		break;
+	case TEGRA3_PROJECT_ME570T:
+		current_mA = 8200;
+		break;
+	case TEGRA3_PROJECT_TF700T:
+		current_mA = 10000;
+		break;
+	default:
+		pr_info("%s: cannot match edp limit\n", __func__);
+		break;
+
 	}
-	pr_info("%s: CPU regulator %d mA\n", __func__, regulator_mA);
 
-	tegra_init_cpu_edp_limits(regulator_mA);
+	pr_info("%s : use asus edp policy with %u mA\n", __func__, current_mA);
+
+	tegra_init_cpu_edp_limits(current_mA);
+
 	return 0;
 }
 #endif
 
-static char *cardhu_battery[] = {
+/*static char *cardhu_battery[] = {
 	"bq27510-0",
 };
 
@@ -1354,4 +1399,56 @@ static int __init cardhu_charger_late_init(void)
 	return 0;
 }
 
-late_initcall(cardhu_charger_late_init);
+late_initcall(cardhu_charger_late_init);*/
+
+unsigned int boot_reason=0;
+void tegra_booting_info(void )
+{
+	static void __iomem *pmc = IO_ADDRESS(TEGRA_PMC_BASE);
+	unsigned int reg;
+	#define PMC_RST_STATUS_WDT (1)
+	#define PMC_RST_STATUS_SW   (3)
+
+	reg = readl(pmc +0x1b4);
+	printk("tegra_booting_info reg=%x\n",reg );
+
+	if (reg ==PMC_RST_STATUS_SW){
+		boot_reason=PMC_RST_STATUS_SW;
+		printk("tegra_booting_info-SW reboot\n");
+	} else if (reg ==PMC_RST_STATUS_WDT){
+		boot_reason=PMC_RST_STATUS_WDT;
+		printk("tegra_booting_info-watchdog reboot\n");
+	} else{
+		boot_reason=0;
+		printk("tegra_booting_info-normal\n");
+	}
+}
+
+int cpufreq_stats_platform_cpu_power_read_tables(int cpunum, u32 *out_values, size_t num)
+{
+	static const u32 powerVals[] = {100000, 107000, 116000, 123000, 135000, 138000, 142000, 148000, 150000, 153000, 156000, 160000, 163000, 166000, 170000};
+	static const u32 cpuWeights[4] = {16384, 6717, 7700, 8847};
+	int i, numVals = sizeof(powerVals) / sizeof(*powerVals), numCpus = sizeof(cpuWeights) / sizeof(*cpuWeights);
+
+	/*
+	 * Our data source (power_profile.xml) only gives us values for 1st core,
+	 * and not per core as requested, so we weigh these. With weights: 100%, 54%.
+    	 * This is the same thing as what hammerhead does (for 1st and last core), for
+	 * better or worse.
+	 */
+
+	if (num > numVals) {
+		pr_err("cpufreq_stats_platform_cpu_power_read_tables asked for too many values (wanted %u have %u)\n", (int)num, numVals);
+		return -1;
+	}
+
+	if (cpunum > numCpus) {
+		pr_err("cpufreq_stats_platform_cpu_power_read_tables asked for too many CPUs (wanted %u have %u)\n", cpunum, numCpus);
+		return -2;
+	}
+
+	for (i = 0; i < num; i++)
+		*out_values++ = powerVals[i] * cpuWeights[cpunum] >> 14;
+
+	return 0;
+}

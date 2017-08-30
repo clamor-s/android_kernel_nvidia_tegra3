@@ -144,7 +144,7 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data2 = {
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
 		.embedded_sdio = &embedded_sdio_data2,
 #endif
-		.built_in = 0,
+		.built_in = 1,
 		.ocr_mask = MMC_OCR_1V8_MASK,
 	},
 #ifndef CONFIG_MMC_EMBEDDED_SDIO

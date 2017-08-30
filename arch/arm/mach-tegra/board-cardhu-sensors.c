@@ -34,40 +34,64 @@
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include <linux/regulator/consumer.h>
+#ifdef CONFIG_I2C_MUX_PCA954x
 #include <linux/i2c/pca954x.h>
+#endif
 #include <linux/i2c/pca953x.h>
 #include <linux/nct1008.h>
 #include <linux/gpio.h>
 
 #include <mach/gpio-tegra.h>
 #include <mach/fb.h>
+#ifdef CONFIG_VIDEO_OV5650
 #include <media/ov5650.h>
 #include <media/ov5640.h>
 #include <media/ov14810.h>
+#endif
+#ifdef CONFIG_VIDEO_OV2710
 #include <media/ov2710.h>
+#endif
+#ifdef CONFIG_VIDEO_YUV
+#include <media/yuv_sensor.h>
+#endif /* CONFIG_VIDEO_YUV */
 #include <media/tps61050.h>
 #include <generated/mach-types.h>
-#include "board.h"
+
 #include <linux/mpu.h>
 #include <media/sh532u.h>
 #include <linux/bq27x00.h>
+#include <mach/pinmux-tegra30.h>
 #include <mach/edp.h>
 #include <linux/therm_est.h>
 
+#include "board.h"
 #include "gpio-names.h"
 #include "board-cardhu.h"
 #include "cpu-tegra.h"
 #include "devices.h"
 
+#include <mach/board-cardhu-misc.h>
+
+#if 0 //WK: Disable NV's camera code
 static struct regulator *cardhu_1v8_cam1 = NULL;
 static struct regulator *cardhu_1v8_cam2 = NULL;
 static struct regulator *cardhu_1v8_cam3 = NULL;
 static struct regulator *cardhu_vdd_2v8_cam1 = NULL;
 static struct regulator *cardhu_vdd_2v8_cam2 = NULL;
 static struct regulator *cardhu_vdd_cam3 = NULL;
+#endif
 
 static struct board_info board_info;
+static struct regulator *reg_cardhu_cam;	/* LDO6 */
+static struct regulator *reg_cardhu_1v8_cam;	/* VDDIO_CAM 1.8V PBB4 */
+static struct regulator *reg_cardhu_2v85_cam;	/* Front Camera 2.85V power */
+static struct regulator *reg_cardhu_1v2_cam;	/* VDDIO_CAM 1.2V PS0 */
+static struct regulator *reg_cardhu_af_pwr_en;	/* ICATCH7002A_AF_PWR_EN_GPIO PS0 */
+static struct regulator *reg_cardhu_vdda_en;	/* ICATCH7002A_VDDA_EN_GPIO GPIO_PR6*/
+static struct regulator *reg_cardhu_vddio_cam;	/* LDO5 It's only for ME301T */
+static bool camera_busy = false;
 
+#ifdef CONFIG_I2C_MUX_PCA954x
 static struct pca954x_platform_mode cardhu_pca954x_modes[] = {
 	{ .adap_id = PCA954x_I2C_BUS0, .deselect_on_exit = true, },
 	{ .adap_id = PCA954x_I2C_BUS1, .deselect_on_exit = true, },
@@ -79,16 +103,29 @@ static struct pca954x_platform_data cardhu_pca954x_data = {
 	.modes    = cardhu_pca954x_modes,
 	.num_modes      = ARRAY_SIZE(cardhu_pca954x_modes),
 };
+#endif
+
+static int IsTF300(void)
+{
+    if (tegra3_get_project_id() == TEGRA3_PROJECT_TF300T)
+        return 1;
+    else if (tegra3_get_project_id() == TEGRA3_PROJECT_TF300TG)
+        return 1;
+    else if (tegra3_get_project_id() == TEGRA3_PROJECT_TF300TL)
+        return 1;
+    else
+        return 0;
+}
 
 static int cardhu_camera_init(void)
 {
+#if 0 //WK: Disable NV's code.
 	int ret;
 
 	/* Boards E1198 and E1291 are of Cardhu personality
 	 * and donot have TCA6416 exp for camera */
 	if ((board_info.board_id == BOARD_E1198) ||
-		(board_info.board_id == BOARD_E1291) ||
-		(board_info.board_id == BOARD_PM315)) {
+		(board_info.board_id == BOARD_E1291) {
 		ret = gpio_request(CAM1_POWER_DWN_GPIO, "camera_power_en");
 		if (ret < 0)
 			pr_err("%s: gpio_request failed for gpio %s\n",
@@ -128,17 +165,452 @@ static int cardhu_camera_init(void)
 			__func__, "CAMERA_CSI_MUX_SEL_GPIO");
 	gpio_direction_output(CAMERA_CSI_MUX_SEL_GPIO, 0);
 	gpio_export(CAMERA_CSI_MUX_SEL_GPIO, false);
-
+#endif
+    pr_info("cardhu_camera_init");
+    if(tegra3_get_project_id() == TEGRA3_PROJECT_TF700T){
+        gpio_request(TF700T_ISP_POWER_1V2_EN_GPIO, "isp_power_1v2_en");
+        gpio_request(TF700T_ISP_POWER_1V8_EN_GPIO, "isp_power_1v8_en");
+        gpio_request(ISP_POWER_RESET_GPIO, "isp_power_rstx");
+    }
+    else if(tegra3_get_project_id() == TEGRA3_PROJECT_TF201){
+        gpio_request(ISP_POWER_1V2_EN_GPIO, "isp_power_1v2_en");
+        gpio_request(ISP_POWER_RESET_GPIO, "isp_power_rstx");
+        gpio_request(CAM3_POWER_DWN_GPIO, "cam3_power_dwn");
+        gpio_request(FRONT_YUV_SENSOR_RST_GPIO, "yuv_sensor_rst_lo");
+    }
+	else if(IsTF300() ||(tegra3_get_project_id() == TEGRA3_PROJECT_ME301T) ||
+		(tegra3_get_project_id() == TEGRA3_PROJECT_ME301TL)) {
+		if(IsTF300() || (tegra3_get_project_id() == TEGRA3_PROJECT_TF500T))
+			gpio_request(ICATCH7002A_VDDIO_EN_GPIO, "cam_vddio_ldo_en");
+		if(tegra3_get_project_id() == TEGRA3_PROJECT_TF500T) {
+			gpio_request(ICATCH7002A_ISP_1V2_EN, "icatch_cam_vddio_ldo_en");
+		}
+		gpio_request(ICATCH7002A_VDDC_EN_GPIO, "cam_vddc_ldo_en");
+		gpio_request(ICATCH7002A_PWR_DN_GPIO, "cam_power_dwn");
+		gpio_request(ICATCH7002A_RST_GPIO, "cam_sensor_rst_lo");
+	}
 	return 0;
 }
 
+#ifdef CONFIG_VIDEO_YUV
+
+static int yuv_sensor_power_on_TF700T(void)
+{
+    if (!reg_cardhu_1v2_cam) {
+        reg_cardhu_1v2_cam = regulator_get(NULL, "vdd_cam3");
+        if (IS_ERR_OR_NULL(reg_cardhu_1v2_cam)) {
+            pr_err("TF700T_m6mo_power_on PS0: vdd_cam3 failed\n");
+            reg_cardhu_1v2_cam = NULL;
+            return PTR_ERR(reg_cardhu_1v2_cam);
+        }
+        regulator_set_voltage(reg_cardhu_1v2_cam, 1200000, 1200000);
+        regulator_enable(reg_cardhu_1v2_cam);
+    }
+
+    pr_info("gpio %d set to %d\n",TF700T_ISP_POWER_1V2_EN_GPIO, gpio_get_value(TF700T_ISP_POWER_1V2_EN_GPIO));
+    gpio_direction_output(TF700T_ISP_POWER_1V2_EN_GPIO, 1);
+    pr_info("gpio %d set to %d\n",TF700T_ISP_POWER_1V2_EN_GPIO, gpio_get_value(TF700T_ISP_POWER_1V2_EN_GPIO));
+
+    if (!reg_cardhu_1v8_cam) {
+        reg_cardhu_1v8_cam = regulator_get(NULL, "vdd_1v8_cam1");
+        if (IS_ERR_OR_NULL(reg_cardhu_1v8_cam)) {
+            pr_err("TF700T_m6mo_power_on PBB4: vdd_1v8_cam1 failed\n");
+            reg_cardhu_1v8_cam = NULL;
+            return PTR_ERR(reg_cardhu_1v8_cam);
+        }
+        regulator_set_voltage(reg_cardhu_1v8_cam, 1800000, 1800000);
+        regulator_enable(reg_cardhu_1v8_cam);
+    }
+
+    pr_info("gpio %d set to %d\n",TF700T_ISP_POWER_1V8_EN_GPIO, gpio_get_value(TF700T_ISP_POWER_1V8_EN_GPIO));
+    gpio_direction_output(TF700T_ISP_POWER_1V8_EN_GPIO, 1);
+    pr_info("gpio %d set to %d\n",TF700T_ISP_POWER_1V8_EN_GPIO, gpio_get_value(TF700T_ISP_POWER_1V8_EN_GPIO));
+
+    msleep(1);
+    tegra_pinmux_set_tristate(TEGRA_PINGROUP_CAM_MCLK, TEGRA_TRI_NORMAL);
+
+    return 0;
+}
+
+static int yuv_sensor_power_off_TF700T(void)
+{
+    tegra_pinmux_set_tristate(TEGRA_PINGROUP_CAM_MCLK, TEGRA_TRI_TRISTATE);
+
+    gpio_direction_output(TF700T_ISP_POWER_1V8_EN_GPIO, 0);
+    pr_info("gpio %d set to %d\n",TF700T_ISP_POWER_1V8_EN_GPIO, gpio_get_value(TF700T_ISP_POWER_1V8_EN_GPIO));
+
+    gpio_direction_output(TF700T_ISP_POWER_1V2_EN_GPIO, 0);
+    pr_info("gpio %d set to %d\n",TF700T_ISP_POWER_1V2_EN_GPIO, gpio_get_value(TF700T_ISP_POWER_1V2_EN_GPIO));
+
+    return 0;
+}
+
+static int yuv_sensor_power_on(void)
+{
+    printk("yuv_sensor_power_on+\n");
+
+    if(camera_busy){
+        printk("yuv_sensor busy\n");
+        return -EBUSY;
+    }
+    camera_busy = true;
+    if (tegra3_get_project_id() == TEGRA3_PROJECT_TF700T)
+    {
+        yuv_sensor_power_on_TF700T();
+    }
+    else{
+        //For i2c bus
+        gpio_request(143, "gpio_pr7");
+        gpio_direction_output(143, 1);
+        pr_info("gpio 2.85V %d set to %d\n",143, gpio_get_value(143));
+
+        pr_info("gpio %d set to %d\n",ISP_POWER_1V2_EN_GPIO, gpio_get_value(ISP_POWER_1V2_EN_GPIO));
+        gpio_direction_output(ISP_POWER_1V2_EN_GPIO, 1);
+        pr_info("gpio %d set to %d\n",ISP_POWER_1V2_EN_GPIO, gpio_get_value(ISP_POWER_1V2_EN_GPIO));
+
+        msleep(5);
+
+        if (!reg_cardhu_1v8_cam) {
+            reg_cardhu_1v8_cam = regulator_get(NULL, "vdd_1v8_cam1");
+            if (IS_ERR_OR_NULL(reg_cardhu_1v8_cam)) {
+                pr_err("TF201_m6mo_power_on PBB4: vdd_1v8_cam1 failed\n");
+                reg_cardhu_1v8_cam = NULL;
+                return PTR_ERR(reg_cardhu_1v8_cam);
+            }
+            regulator_set_voltage(reg_cardhu_1v8_cam, 1800000, 1800000);
+            regulator_enable(reg_cardhu_1v8_cam);
+        }
+    }
+    if (!reg_cardhu_cam) {
+        reg_cardhu_cam = regulator_get(NULL, "avdd_dsi_csi");
+        if (IS_ERR_OR_NULL(reg_cardhu_cam)) {
+            pr_err("TF201_m6mo_power_on LDO6: p_tegra_cam failed\n");
+            reg_cardhu_cam = NULL;
+            return PTR_ERR(reg_cardhu_cam);
+        }
+        regulator_set_voltage(reg_cardhu_cam, 1200000, 1200000);
+        regulator_enable(reg_cardhu_cam);
+    }
+
+    return 0;
+}
+int yuv_sensor_power_on_reset_pin(void)
+{
+    pr_info("gpio %d set to %d\n",ISP_POWER_RESET_GPIO, gpio_get_value(ISP_POWER_RESET_GPIO));
+    gpio_direction_output(ISP_POWER_RESET_GPIO, 1);
+    pr_info("gpio %d set to %d\n",ISP_POWER_RESET_GPIO, gpio_get_value(ISP_POWER_RESET_GPIO));
+
+    printk("yuv_sensor_power_on -\n");
+    return 0;
+}
+
+static int yuv_sensor_power_off(void)
+{
+    if(reg_cardhu_cam){
+        regulator_disable(reg_cardhu_cam);
+        regulator_put(reg_cardhu_cam);
+        reg_cardhu_cam = NULL;
+    }
+
+    if(tegra3_get_project_id() == TEGRA3_PROJECT_TF700T){
+        yuv_sensor_power_off_TF700T();
+    }
+    else{
+        if(reg_cardhu_1v8_cam){
+            regulator_disable(reg_cardhu_1v8_cam);
+            regulator_put(reg_cardhu_1v8_cam);
+            reg_cardhu_1v8_cam = NULL;
+        }
+        gpio_direction_output(ISP_POWER_1V2_EN_GPIO, 0);
+        pr_info("gpio %d set to %d\n",ISP_POWER_1V2_EN_GPIO, gpio_get_value(ISP_POWER_1V2_EN_GPIO));
+    }
+
+    printk("yuv_sensor_power_off-\n");
+    return 0;
+}
+
+int yuv_sensor_power_off_reset_pin(void)
+{
+    printk("yuv_sensor_power_off+\n");
+    camera_busy = false;
+    gpio_direction_output(ISP_POWER_RESET_GPIO, 0);
+    pr_info("gpio %d set to %d\n",ISP_POWER_RESET_GPIO, gpio_get_value(ISP_POWER_RESET_GPIO));
+    return 0;
+}
+
+struct yuv_sensor_platform_data yuv_rear_sensor_data = {
+    .power_on = yuv_sensor_power_on,
+    .power_off = yuv_sensor_power_off,
+};
+
+static int yuv_front_sensor_power_on(void)
+{
+	printk("yuv_front_sensor_power_on+\n");
+
+	if(camera_busy){
+		printk("yuv_sensor busy\n");
+		return -EBUSY;
+	}
+	camera_busy = true;
+	/* 1.8V VDDIO_CAM controlled by "EN_1V8_CAM(GPIO_PBB4)" */
+	if (!reg_cardhu_1v8_cam) {
+		reg_cardhu_1v8_cam = regulator_get(NULL, "vdd_1v8_cam1"); /*cam2/3?*/
+		if (IS_ERR_OR_NULL(reg_cardhu_1v8_cam)) {
+			reg_cardhu_1v8_cam = NULL;
+			pr_err("Can't get reg_cardhu_1v8_cam.\n");
+			goto fail_to_get_reg;
+		}
+		regulator_set_voltage(reg_cardhu_1v8_cam, 1800000, 1800000);
+		regulator_enable(reg_cardhu_1v8_cam);
+	}
+
+  	/* 2.85V VDD_CAM2 controlled by CAM2/3_LDO_EN(GPIO_PS0)*/
+  	if (!reg_cardhu_2v85_cam) {
+  		reg_cardhu_2v85_cam = regulator_get(NULL, "vdd_cam3");
+  		if (IS_ERR_OR_NULL(reg_cardhu_2v85_cam)) {
+  			reg_cardhu_2v85_cam = NULL;
+  			pr_err("Can't get reg_cardhu_2v85_cam.\n");
+  			goto fail_to_get_reg;
+  		}
+  		regulator_set_voltage(reg_cardhu_2v85_cam, 2850000, 2850000);
+  		regulator_enable(reg_cardhu_2v85_cam);
+  	}
+
+	/* cam_power_en, powdn*/
+	pr_info("gpio %d: %d",CAM3_POWER_DWN_GPIO, gpio_get_value(CAM3_POWER_DWN_GPIO));
+	gpio_set_value(CAM3_POWER_DWN_GPIO, 0);
+	gpio_direction_output(CAM3_POWER_DWN_GPIO, 0);
+	pr_info("--> %d\n", gpio_get_value(CAM3_POWER_DWN_GPIO));
+
+	/* yuv_sensor_rst_lo*/
+	pr_info("gpio %d: %d", FRONT_YUV_SENSOR_RST_GPIO, gpio_get_value(FRONT_YUV_SENSOR_RST_GPIO));
+	gpio_set_value(FRONT_YUV_SENSOR_RST_GPIO, 1);
+	gpio_direction_output(FRONT_YUV_SENSOR_RST_GPIO, 1);
+	pr_info("--> %d\n", gpio_get_value(FRONT_YUV_SENSOR_RST_GPIO));
+
+	printk("yuv_front_sensor_power_on-\n");
+	return 0;
+
+fail_to_get_reg:
+	if (reg_cardhu_2v85_cam) {
+		regulator_put(reg_cardhu_2v85_cam);
+		reg_cardhu_2v85_cam = NULL;
+	}
+	if (reg_cardhu_1v8_cam) {
+		regulator_put(reg_cardhu_1v8_cam);
+		reg_cardhu_1v8_cam = NULL;
+	}
+
+	camera_busy = false;
+	printk("yuv_front_sensor_power_on- : -ENODEV\n");
+	return -ENODEV;
+}
+
+static int yuv_front_sensor_power_off(void)
+{
+	printk("yuv_front_sensor_power_off+\n");
+
+	gpio_set_value(FRONT_YUV_SENSOR_RST_GPIO, 0);
+	gpio_direction_output(FRONT_YUV_SENSOR_RST_GPIO, 0);
+
+	gpio_set_value(CAM3_POWER_DWN_GPIO, 1);
+	gpio_direction_output(CAM3_POWER_DWN_GPIO, 1);
+
+	if (reg_cardhu_2v85_cam) {
+		regulator_disable(reg_cardhu_2v85_cam);
+		regulator_put(reg_cardhu_2v85_cam);
+		reg_cardhu_2v85_cam = NULL;
+	}
+	if (reg_cardhu_1v8_cam) {
+		regulator_disable(reg_cardhu_1v8_cam);
+		regulator_put(reg_cardhu_1v8_cam);
+		reg_cardhu_1v8_cam = NULL;
+	}
+
+	camera_busy = false;
+	printk("yuv_front_sensor_power_off-\n");
+	return 0;
+}
+struct yuv_sensor_platform_data yuv_front_sensor_data = {
+	.power_on = yuv_front_sensor_power_on,
+	.power_off = yuv_front_sensor_power_off,
+};
+/*==============++iCatch++================================*/
+static int iCatch7002a_power_on(void)
+{
+    printk("%s+\n", __FUNCTION__);
+
+	if(IsTF300() ||(tegra3_get_project_id() == TEGRA3_PROJECT_ME301T) ||
+		(tegra3_get_project_id() == TEGRA3_PROJECT_ME301TL)) {
+		Asus_camera_enable_set_emc_rate(667000000);
+	}
+
+    if((tegra3_get_project_id() == TEGRA3_PROJECT_ME301T) || (tegra3_get_project_id() == TEGRA3_PROJECT_ME301TL)){
+        if (!reg_cardhu_vddio_cam) {
+            reg_cardhu_vddio_cam = regulator_get(NULL, "avdd_vdac");
+            if (IS_ERR_OR_NULL(reg_cardhu_vddio_cam)) {
+                pr_err("ME301T_vddio_power_on LDO5: avdd_vdac failed\n");
+                reg_cardhu_vddio_cam = NULL;
+                goto fail_to_get_reg;
+            }
+            regulator_set_voltage(reg_cardhu_vddio_cam, 1800000, 1800000);
+            regulator_enable(reg_cardhu_vddio_cam);
+        }
+    }
+    else{
+        pr_info("gpio %d read as %d\n",ICATCH7002A_VDDIO_EN_GPIO, gpio_get_value(ICATCH7002A_VDDIO_EN_GPIO));
+        gpio_direction_output(ICATCH7002A_VDDIO_EN_GPIO, 1);
+        pr_info("gpio %d set to %d\n",ICATCH7002A_VDDIO_EN_GPIO, gpio_get_value(ICATCH7002A_VDDIO_EN_GPIO));
+    }
+
+    msleep(1);
+
+    if (!reg_cardhu_vdda_en) {
+        reg_cardhu_vdda_en = regulator_get(NULL, "vdd_2v8_cam1");
+        if (IS_ERR_OR_NULL(reg_cardhu_vdda_en)) {
+            pr_err("vdda_power_on gpio_pr6: vdd_2v8_cam1 failed\n");
+            reg_cardhu_vdda_en = NULL;
+            goto fail_to_get_reg;
+        }
+        regulator_enable(reg_cardhu_vdda_en);
+        mdelay(5);
+    }
+
+
+
+    if (!reg_cardhu_af_pwr_en) {
+        reg_cardhu_af_pwr_en = regulator_get(NULL, "vdd_cam3");
+        if (IS_ERR_OR_NULL(reg_cardhu_af_pwr_en)) {
+            pr_err("af_power_on gpio_ps0: vdd_cam3 failed\n");
+            reg_cardhu_af_pwr_en = NULL;
+            goto fail_to_get_reg;
+        }
+        regulator_enable(reg_cardhu_af_pwr_en);
+        mdelay(5);
+    }
+   	if(IsTF300() ||(tegra3_get_project_id() == TEGRA3_PROJECT_ME301T) ||
+		(tegra3_get_project_id() == TEGRA3_PROJECT_ME301TL)) {
+        pr_info("gpio %d read as %d\n",ICATCH7002A_VDDC_EN_GPIO, gpio_get_value(ICATCH7002A_VDDC_EN_GPIO));
+        gpio_direction_output(ICATCH7002A_VDDC_EN_GPIO, 1);
+        pr_info("gpio %d set to %d\n",ICATCH7002A_VDDC_EN_GPIO, gpio_get_value(ICATCH7002A_VDDC_EN_GPIO));
+    }
+    msleep(1);
+
+    tegra_pinmux_set_tristate(TEGRA_PINGROUP_CAM_MCLK, TEGRA_TRI_NORMAL);
+
+	/* cam_power_en, powdn*/
+	pr_info("gpio %d: %d",ICATCH7002A_PWR_DN_GPIO, gpio_get_value(ICATCH7002A_PWR_DN_GPIO));
+	gpio_set_value(ICATCH7002A_PWR_DN_GPIO, 1);
+	gpio_direction_output(ICATCH7002A_PWR_DN_GPIO, 1);
+	pr_info("--> %d\n", gpio_get_value(ICATCH7002A_PWR_DN_GPIO));
+
+    /* yuv_sensor_rst_lo*/
+    if (IsTF300()){
+        pr_info("gpio %d: %d", ICATCH7002A_RST_GPIO, gpio_get_value(ICATCH7002A_RST_GPIO));
+        gpio_set_value(ICATCH7002A_RST_GPIO, 1);//high
+        gpio_direction_output(ICATCH7002A_RST_GPIO, 1);
+        pr_info("gpio %d--> %d\n", ICATCH7002A_RST_GPIO, gpio_get_value(ICATCH7002A_RST_GPIO));
+        msleep(5);
+    }
+    gpio_set_value(ICATCH7002A_RST_GPIO, 0);//low
+	gpio_direction_output(ICATCH7002A_RST_GPIO, 0);
+	pr_info("gpio %d--> %d\n", ICATCH7002A_RST_GPIO, gpio_get_value(ICATCH7002A_RST_GPIO));
+	msleep(25);
+	gpio_set_value(ICATCH7002A_RST_GPIO, 1);//high
+	gpio_direction_output(ICATCH7002A_RST_GPIO, 1);
+	pr_info("gpio %d--> %d\n", ICATCH7002A_RST_GPIO, gpio_get_value(ICATCH7002A_RST_GPIO));
+	msleep(6);
+	gpio_set_value(ICATCH7002A_PWR_DN_GPIO, 0);//low
+	gpio_direction_output(ICATCH7002A_PWR_DN_GPIO, 0);
+	pr_info("gpio %d--> %d\n", ICATCH7002A_PWR_DN_GPIO, gpio_get_value(ICATCH7002A_PWR_DN_GPIO));
+
+    return 0;
+
+fail_to_get_reg:
+	if (reg_cardhu_vddio_cam) {
+		regulator_disable(reg_cardhu_vddio_cam);
+		regulator_put(reg_cardhu_vddio_cam);
+		reg_cardhu_vddio_cam = NULL;
+	}
+	if (reg_cardhu_vdda_en) {
+		regulator_disable(reg_cardhu_vdda_en);
+		regulator_put(reg_cardhu_vdda_en);
+		reg_cardhu_vdda_en = NULL;
+	}
+	if (reg_cardhu_af_pwr_en) {
+		regulator_disable(reg_cardhu_af_pwr_en);
+		regulator_put(reg_cardhu_af_pwr_en);
+		reg_cardhu_af_pwr_en = NULL;
+	}
+	if (reg_cardhu_1v8_cam) {
+		regulator_disable(reg_cardhu_1v8_cam);
+		regulator_put(reg_cardhu_1v8_cam);
+		reg_cardhu_1v8_cam = NULL;
+	}
+
+    printk("%s- : -ENODEV\n", __FUNCTION__);
+    return -ENODEV;
+}
+static int iCatch7002a_power_off(void)
+{
+	printk("%s+\n", __FUNCTION__);
+	gpio_set_value(ICATCH7002A_RST_GPIO, 0);
+	gpio_direction_output(ICATCH7002A_RST_GPIO, 0);
+
+	tegra_pinmux_set_tristate(TEGRA_PINGROUP_CAM_MCLK, TEGRA_TRI_TRISTATE);
+
+	if(IsTF300() ||(tegra3_get_project_id() == TEGRA3_PROJECT_ME301T) ||
+		(tegra3_get_project_id() == TEGRA3_PROJECT_ME301TL)){
+        gpio_set_value(ICATCH7002A_VDDC_EN_GPIO, 0);
+        gpio_direction_output(ICATCH7002A_VDDC_EN_GPIO, 0);
+    }
+
+    if (reg_cardhu_af_pwr_en) {
+        regulator_disable(reg_cardhu_af_pwr_en);
+        regulator_put(reg_cardhu_af_pwr_en);
+        reg_cardhu_af_pwr_en = NULL;
+    }
+
+    if (reg_cardhu_vdda_en) {
+        regulator_disable(reg_cardhu_vdda_en);
+        regulator_put(reg_cardhu_vdda_en);
+        reg_cardhu_vdda_en = NULL;
+    }
+    if((tegra3_get_project_id() == TEGRA3_PROJECT_ME301T) || (tegra3_get_project_id() == TEGRA3_PROJECT_ME301TL)){
+        if (reg_cardhu_vddio_cam) {
+            regulator_disable(reg_cardhu_vddio_cam);
+            regulator_put(reg_cardhu_vddio_cam);
+            reg_cardhu_vddio_cam = NULL;
+        }
+    }
+    else{
+        gpio_set_value(ICATCH7002A_VDDIO_EN_GPIO, 0);
+        gpio_direction_output(ICATCH7002A_VDDIO_EN_GPIO, 0);
+    }
+
+	if(IsTF300() ||(tegra3_get_project_id() == TEGRA3_PROJECT_ME301T) ||
+		(tegra3_get_project_id() == TEGRA3_PROJECT_ME301TL)){
+		Asus_camera_disable_set_emc_rate();
+	}
+
+	printk("%s-\n", __FUNCTION__);
+  return 0;
+}
+struct yuv_sensor_platform_data iCatch7002a_data = {
+	.power_on = iCatch7002a_power_on,
+	.power_off = iCatch7002a_power_off,
+};
+/*==============--iCatch--================================*/
+
+#endif  /* CONFIG_VIDEO_YUV */
+
+#ifdef CONFIG_VIDEO_OV5650
 static int cardhu_left_ov5650_power_on(struct device *dev)
 {
 	/* Boards E1198 and E1291 are of Cardhu personality
 	 * and donot have TCA6416 exp for camera */
 	if ((board_info.board_id == BOARD_E1198) ||
-		(board_info.board_id == BOARD_E1291) ||
-		(board_info.board_id == BOARD_PM315)) {
+		(board_info.board_id == BOARD_E1291)) {
 
 		if (cardhu_vdd_2v8_cam1 == NULL) {
 			cardhu_vdd_2v8_cam1 =
@@ -166,8 +638,7 @@ static int cardhu_left_ov5650_power_on(struct device *dev)
 
 	mdelay(5);
 	if ((board_info.board_id == BOARD_E1198) ||
-		(board_info.board_id == BOARD_E1291) ||
-		(board_info.board_id == BOARD_PM315)) {
+		(board_info.board_id == BOARD_E1291)) {
 		gpio_direction_output(CAM1_POWER_DWN_GPIO, 0);
 		mdelay(20);
 		gpio_direction_output(OV5650_RESETN_GPIO, 0);
@@ -202,8 +673,7 @@ static int cardhu_left_ov5650_power_off(struct device *dev)
 	/* Boards E1198 and E1291 are of Cardhu personality
 	 * and donot have TCA6416 exp for camera */
 	if ((board_info.board_id == BOARD_E1198) ||
-		(board_info.board_id == BOARD_E1291) ||
-		(board_info.board_id == BOARD_PM315)) {
+		(board_info.board_id == BOARD_E1291)) {
 		gpio_direction_output(CAM1_POWER_DWN_GPIO, 1);
 		gpio_direction_output(CAM2_POWER_DWN_GPIO, 1);
 		gpio_direction_output(CAM3_POWER_DWN_GPIO, 1);
@@ -285,8 +755,7 @@ static int cardhu_right_ov5650_power_on(struct device *dev)
 	/* Boards E1198 and E1291 are of Cardhu personality
 	 * and donot have TCA6416 exp for camera */
 	if ((board_info.board_id == BOARD_E1198) ||
-		(board_info.board_id == BOARD_E1291) ||
-		(board_info.board_id == BOARD_PM315)) {
+		(board_info.board_id == BOARD_E1291)) {
 
 		gpio_direction_output(CAM1_POWER_DWN_GPIO, 0);
 		gpio_direction_output(CAM2_POWER_DWN_GPIO, 0);
@@ -348,8 +817,7 @@ static int cardhu_right_ov5650_power_off(struct device *dev)
 	/* Boards E1198 and E1291 are of Cardhu personality
 	 * and do not have TCA6416 for camera */
 	if ((board_info.board_id == BOARD_E1198) ||
-		(board_info.board_id == BOARD_E1291) ||
-		(board_info.board_id == BOARD_PM315)) {
+		(board_info.board_id == BOARD_E1291)) {
 		gpio_direction_output(CAM1_POWER_DWN_GPIO, 1);
 		gpio_direction_output(CAM2_POWER_DWN_GPIO, 1);
 		gpio_direction_output(CAM3_POWER_DWN_GPIO, 1);
@@ -370,8 +838,7 @@ static void cardhu_ov5650_synchronize_sensors(void)
 		mdelay(50);
 		gpio_direction_output(CAM1_POWER_DWN_GPIO, 0);
 		mdelay(50);
-	} else if ((board_info.board_id == BOARD_E1291) ||
-			(board_info.board_id == BOARD_PM315)) {
+	} else if (board_info.board_id == BOARD_E1291) {
 		gpio_direction_output(CAM1_POWER_DWN_GPIO, 1);
 		gpio_direction_output(CAM2_POWER_DWN_GPIO, 1);
 		mdelay(50);
@@ -389,6 +856,9 @@ struct ov5650_platform_data cardhu_right_ov5650_data = {
 	.synchronize_sensors = cardhu_ov5650_synchronize_sensors,
 };
 
+#endif /* CONFIG_VIDEO_OV5650 */
+
+#ifdef CONFIG_VIDEO_OV2710
 static int cardhu_ov2710_power_on(struct device *dev)
 {
 	/* CSI-B and front sensor are muxed on cardhu */
@@ -408,8 +878,7 @@ static int cardhu_ov2710_power_on(struct device *dev)
 	/* Boards E1198 and E1291 are of Cardhu personality
 	 * and do not have TCA6416 for camera */
 	if ((board_info.board_id == BOARD_E1198) ||
-		(board_info.board_id == BOARD_E1291) ||
-		(board_info.board_id == BOARD_PM315)) {
+		(board_info.board_id == BOARD_E1291)) {
 		if (cardhu_vdd_cam3 == NULL) {
 			cardhu_vdd_cam3 = regulator_get(dev, "vdd_cam3");
 			if (WARN_ON(IS_ERR(cardhu_vdd_cam3))) {
@@ -454,8 +923,7 @@ static int cardhu_ov2710_power_off(struct device *dev)
 	/* Boards E1198 and E1291 are of Cardhu personality
 	 * and donot have TCA6416 exp for camera */
 	if ((board_info.board_id == BOARD_E1198) ||
-		(board_info.board_id == BOARD_E1291) ||
-		(board_info.board_id == BOARD_PM315)) {
+		(board_info.board_id == BOARD_E1291)) {
 		gpio_direction_output(CAM1_POWER_DWN_GPIO, 1);
 		gpio_direction_output(CAM2_POWER_DWN_GPIO, 1);
 		gpio_direction_output(CAM3_POWER_DWN_GPIO, 1);
@@ -482,8 +950,7 @@ static int cardhu_ov5640_power_on(struct device *dev)
 	/* Boards E1198 and E1291 are of Cardhu personality
 	 * and donot have TCA6416 exp for camera */
 	if ((board_info.board_id == BOARD_E1198) ||
-		(board_info.board_id == BOARD_E1291) ||
-		(board_info.board_id == BOARD_PM315)) {
+		(board_info.board_id == BOARD_E1291)) {
 
 		gpio_direction_output(CAM1_POWER_DWN_GPIO, 0);
 		gpio_direction_output(CAM2_POWER_DWN_GPIO, 0);
@@ -536,8 +1003,7 @@ static int cardhu_ov5640_power_off(struct device *dev)
 	/* Boards E1198 and E1291 are of Cardhu personality
 	 * and donot have TCA6416 exp for camera */
 	if ((board_info.board_id == BOARD_E1198) ||
-		(board_info.board_id == BOARD_E1291) ||
-		(board_info.board_id == BOARD_PM315)) {
+		(board_info.board_id == BOARD_E1291)) {
 		gpio_direction_output(CAM1_POWER_DWN_GPIO, 1);
 		gpio_direction_output(CAM2_POWER_DWN_GPIO, 1);
 		gpio_direction_output(CAM3_POWER_DWN_GPIO, 1);
@@ -621,7 +1087,9 @@ static struct tps61050_platform_data cardhu_tps61050_pdata = {
 	.dev_name	= "torch",
 	.pinstate	= &cardhu_tps61050_pinstate,
 };
+#endif
 
+#ifdef CONFIG_VIDEO_OV5650
 static const struct i2c_board_info cardhu_i2c_board_info_tps61050[] = {
 	{
 		I2C_BOARD_INFO("tps61050", 0x33),
@@ -672,7 +1140,10 @@ static struct i2c_board_info pm269_i2c7_board_info[] = {
 		.platform_data = &pm269_sh532u_right_pdata,
 	},
 };
+#endif
 
+
+#ifdef CONFIG_VIDEO_OV2710
 static struct i2c_board_info cardhu_i2c8_board_info[] = {
 	{
 		I2C_BOARD_INFO("ov2710", 0x36),
@@ -683,6 +1154,7 @@ static struct i2c_board_info cardhu_i2c8_board_info[] = {
 		.platform_data = &cardhu_ov5640_data,
 	},
 };
+#endif
 
 static struct throttle_table tj_throttle_table[] = {
 		/* CPU_THROT_LOW cannot be used by other than CPU */
@@ -748,6 +1220,24 @@ static struct i2c_board_info cardhu_i2c4_bq27510_board_info[] = {
 	},
 };
 
+static struct i2c_board_info cardhu_i2c4_bq27541_board_info[] = {
+	{
+		I2C_BOARD_INFO("bq27541-battery", 0x55),
+	},
+};
+
+static struct i2c_board_info grouper_i2c4_smb347_board_info[] = {
+	{
+		I2C_BOARD_INFO("smb347", 0x6a),
+	},
+};
+
+static struct i2c_board_info cardhu_i2c4_pad_bat_board_info[] = {
+	{
+		I2C_BOARD_INFO("pad-battery", 0xb),
+	},
+};
+
 static struct i2c_board_info cardhu_i2c4_nct1008_board_info[] = {
 	{
 		I2C_BOARD_INFO("nct1008", 0x4C),
@@ -755,6 +1245,30 @@ static struct i2c_board_info cardhu_i2c4_nct1008_board_info[] = {
 		.irq = -1,
 	}
 };
+
+#ifdef CONFIG_VIDEO_YUV
+
+static struct i2c_board_info rear_sensor_i2c3_board_info[] = {  //ddebug
+    {
+        I2C_BOARD_INFO("fjm6mo", 0x1F),
+        .platform_data = &yuv_rear_sensor_data,
+    },
+};
+
+static struct i2c_board_info front_sensor_i2c2_board_info[] = {  //ddebug
+	{
+		I2C_BOARD_INFO("mi1040", 0x48),
+		.platform_data = &yuv_front_sensor_data,
+	},
+};
+
+static struct i2c_board_info iCatch7002a_i2c2_board_info[] = {
+	{
+		I2C_BOARD_INFO("i7002a", 0x3C),
+		.platform_data = &iCatch7002a_data,
+	},
+};
+#endif /* CONFIG_VIDEO_YUV */
 
 static int cardhu_nct1008_init(void)
 {
@@ -766,9 +1280,15 @@ static int cardhu_nct1008_init(void)
 		(board_info.board_id == BOARD_E1257) ||
 		(board_info.board_id == BOARD_PM269) ||
 		(board_info.board_id == BOARD_PM305) ||
-		(board_info.board_id == BOARD_PM311) ||
-		(board_info.board_id == BOARD_PM315)) {
-		nct1008_port = TEGRA_GPIO_PCC2;
+		(board_info.board_id == BOARD_PM311)) {
+		if(tegra3_get_project_id() == TEGRA3_PROJECT_ME301T || tegra3_get_project_id() == TEGRA3_PROJECT_ME301TL)
+		{
+			nct1008_port = TEGRA_GPIO_PS3;
+		}
+		else
+		{
+			nct1008_port = TEGRA_GPIO_PCC2;
+		}
 	} else if ((board_info.board_id == BOARD_E1186) ||
 		(board_info.board_id == BOARD_E1187) ||
 		(board_info.board_id == BOARD_E1256)) {
@@ -945,6 +1465,18 @@ static int __init cam_tca6416_init(void)
 }
 #endif
 
+static struct i2c_board_info cardhu_i2c2_isl_board_info[] = {
+	{
+		I2C_BOARD_INFO("isl29028", 0x44),
+	}
+};
+
+static struct i2c_board_info cardhu_i2c2_ltr_board_info[] = {
+	{
+		I2C_BOARD_INFO("LTR_558ALS", 0x23),
+	}
+};
+
 /* MPU board file definition	*/
 static struct mpu_platform_data mpu_gyro_data = {
 	.int_config	= 0x10,
@@ -1028,34 +1560,34 @@ static void mpuirq_init(void)
 		ARRAY_SIZE(inv_mpu_i2c2_board_info));
 }
 
-static struct i2c_board_info cardhu_i2c2_isl_board_info[] = {
-	{
-		I2C_BOARD_INFO("isl29028", 0x44),
-	}
-};
-
-static struct i2c_board_info cardhu_i2c2_ltr_board_info[] = {
-	{
-		I2C_BOARD_INFO("LTR_558ALS", 0x23),
-	}
+static struct i2c_board_info cardhu_i2c1_board_info_al3010[] = {
+    {
+        I2C_BOARD_INFO("al3010",0x1C),
+    },
 };
 
 int __init cardhu_sensors_init(void)
 {
 	int err;
-
+	int ret = 0;
+	
 	tegra_get_board_info(&board_info);
 
 	cardhu_camera_init();
 	cam_tca6416_init();
 
+	cardhu_i2c1_board_info_al3010[0].irq = gpio_to_irq(TEGRA_GPIO_PZ2);
+	i2c_register_board_info(2, cardhu_i2c1_board_info_al3010,
+            ARRAY_SIZE(cardhu_i2c1_board_info_al3010));
+	
+#ifdef CONFIG_I2C_MUX_PCA954x
 	i2c_register_board_info(2, cardhu_i2c3_board_info,
 		ARRAY_SIZE(cardhu_i2c3_board_info));
 
 	i2c_register_board_info(2, cardhu_i2c_board_info_tps61050,
 		ARRAY_SIZE(cardhu_i2c_board_info_tps61050));
 
-#ifdef CONFIG_VIDEO_OV14810
+//#ifdef CONFIG_VIDEO_OV14810
 	/* This is disabled by default; To enable this change Kconfig;
 	 * there should be some way to detect dynamically which board
 	 * is connected (E1211/E1214), till that time sensor selection
@@ -1063,7 +1595,7 @@ int __init cardhu_sensors_init(void)
 	 * e1214 corresponds to ov14810 sensor */
 	i2c_register_board_info(2, cardhu_i2c_board_info_e1214,
 		ARRAY_SIZE(cardhu_i2c_board_info_e1214));
-#else
+//#else
 	/* Left  camera is on PCA954x's I2C BUS0, Right camera is on BUS1 &
 	 * Front camera is on BUS2 */
 	if (board_info.board_id != BOARD_PM269) {
@@ -1087,24 +1619,56 @@ int __init cardhu_sensors_init(void)
 		ARRAY_SIZE(cardhu_i2c8_board_info));
 
 #endif
+#ifdef CONFIG_VIDEO_YUV
+
+//+ m6mo rear camera
+    pr_info("fjm6mo i2c_register_board_info");
+    i2c_register_board_info(2, rear_sensor_i2c3_board_info,
+        ARRAY_SIZE(rear_sensor_i2c3_board_info));
+
+/* Front Camera mi1040 + */
+    pr_info("mi1040 i2c_register_board_info");
+	i2c_register_board_info(2, front_sensor_i2c2_board_info,
+		ARRAY_SIZE(front_sensor_i2c2_board_info));
+/* Front Camera mi1040 - */
+
+/* iCatch7002a + */
+	pr_info("iCatch7002a i2c_register_board_info");
+	i2c_register_board_info(2, iCatch7002a_i2c2_board_info,
+		ARRAY_SIZE(iCatch7002a_i2c2_board_info));
+/* iCatch7002a - */
+#endif /* CONFIG_VIDEO_YUV */
 	pmu_tca6416_init();
 
 	if (board_info.board_id == BOARD_E1291)
 		i2c_register_board_info(4, cardhu_i2c4_bq27510_board_info,
 			ARRAY_SIZE(cardhu_i2c4_bq27510_board_info));
 
-	if (board_info.sku == BOARD_SKU_B11)
-		i2c_register_board_info(2, cardhu_i2c2_ltr_board_info,
-			ARRAY_SIZE(cardhu_i2c2_ltr_board_info));
-	else if (board_info.board_id != BOARD_PM315)
-		i2c_register_board_info(2, cardhu_i2c2_isl_board_info,
-			ARRAY_SIZE(cardhu_i2c2_isl_board_info));
+	if(tegra3_get_project_id() == TEGRA3_PROJECT_ME301T || tegra3_get_project_id() == TEGRA3_PROJECT_ME301TL || tegra3_get_project_id() == TEGRA3_PROJECT_ME570T)
+	{
+		ret = i2c_register_board_info(4, grouper_i2c4_smb347_board_info,
+			ARRAY_SIZE(grouper_i2c4_smb347_board_info));
+		printk("smb347 i2c_register_board_info, ret = %d\n", ret);
 
+		ret = i2c_register_board_info(4, cardhu_i2c4_bq27541_board_info,
+			ARRAY_SIZE(cardhu_i2c4_bq27541_board_info));
+		printk("bq27510 i2c_register_board_info, ret = %d\n", ret);
+	}
+	else
+	{
+		i2c_register_board_info(4, cardhu_i2c4_pad_bat_board_info,
+			ARRAY_SIZE(cardhu_i2c4_pad_bat_board_info));
+	}
+	
 	err = cardhu_nct1008_init();
 	if (err)
 		return err;
 
+	i2c_register_board_info(4, cardhu_i2c4_nct1008_board_info,
+		ARRAY_SIZE(cardhu_i2c4_nct1008_board_info));
+
 	mpuirq_init();
+
 	return 0;
 }
 
@@ -1149,8 +1713,7 @@ int __init cardhu_ov5650_late_init(void)
 		return 0;
 
 	if ((board_info.board_id == BOARD_E1198) ||
-		(board_info.board_id == BOARD_E1291) ||
-		(board_info.board_id == BOARD_PM315))
+		(board_info.board_id == BOARD_E1291))
 		return 0;
 
 	printk(KERN_INFO "%s:\n", __func__);

@@ -11,6 +11,12 @@ config TEGRA_DTV
 
           If unsure, say Y
 
+config VIDEO_YUV
+        tristate "YUV camera sensor support"
+        depends on I2C && ARCH_TEGRA
+        ---help---
+          This is a template driver for all YUV camera sensor
+
 config VIDEO_MI1040
         tristate "MI1040 camera sensor support"
         depends on I2C && ARCH_TEGRA

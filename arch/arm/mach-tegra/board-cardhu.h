@@ -184,6 +184,22 @@
 #define CAMERA_FLASH_SYNC_GPIO		TEGRA_GPIO_PBB3
 #define CAMERA_FLASH_MAX_TORCH_AMP	7
 #define CAMERA_FLASH_MAX_FLASH_AMP	7
+/* CAMERA RELATED GPIOs on TF201*/
+#define ISP_POWER_1V2_EN_GPIO       TEGRA_GPIO_PS3      //ISP_1V2_EN VDD_ISP_1V2
+#define ISP_POWER_RESET_GPIO        TEGRA_GPIO_PBB0     //CAM_RST_5M, RSTX
+#define FRONT_YUV_SENSOR_RST_GPIO	TEGRA_GPIO_PO0      //1.2M CAM_RST
+
+//TF700T
+#define TF700T_ISP_POWER_1V2_EN_GPIO       TEGRA_GPIO_PR7      //ISP_1V2_EN VDD_ISP_1V2
+#define TF700T_ISP_POWER_1V8_EN_GPIO       TEGRA_GPIO_PBB7     //ISP_1V8_EN VDD_ISP_1V8
+
+//TF300T, TF500T
+#define ICATCH7002A_RST_GPIO TEGRA_GPIO_PBB0
+#define ICATCH7002A_VDDIO_EN_GPIO TEGRA_GPIO_PBB4
+#define ICATCH7002A_PWR_DN_GPIO TEGRA_GPIO_PBB5
+#define ICATCH7002A_VDDC_EN_GPIO TEGRA_GPIO_PBB7
+#define ICATCH7002A_ISP_1V2_EN TEGRA_GPIO_PS3   //For TF500T; PBB7 in other porjects
+#define ICATCH7002A_CAM_2V85_EN TEGRA_GPIO_PR7
 
 /* PCA954x I2C bus expander bus addresses */
 #define PCA954x_I2C_BUS_BASE	6
@@ -228,6 +244,10 @@ int cardhu_pm298_gpio_switch_regulator_init(void);
 int cardhu_pm298_regulator_init(void);
 int cardhu_pm299_gpio_switch_regulator_init(void);
 int cardhu_pm299_regulator_init(void);
+struct platform_device *tegra_cardhu_usb_utmip_host_register(void);
+void tegra_cardhu_usb_utmip_host_unregister(struct platform_device *pdev);
+struct platform_device *tegra_usb3_utmip_host_register(void);
+void tegra_usb3_utmip_host_unregister(struct platform_device *pdev);
 
 extern struct tegra_uart_platform_data cardhu_irda_pdata;
 
@@ -253,12 +273,19 @@ extern struct tegra_uart_platform_data cardhu_irda_pdata;
 #define MPU_COMPASS_ORIENTATION	{ 1, 0, 0, 0, 1, 0, 0, 0, 1 }
 
 /* Baseband GPIO addresses */
-#define BB_GPIO_BB_EN			TEGRA_GPIO_PR5
+/*#define BB_GPIO_BB_EN			TEGRA_GPIO_PR5
 #define BB_GPIO_BB_RST			TEGRA_GPIO_PS4
 #define BB_GPIO_SPI_INT			TEGRA_GPIO_PS6
 #define BB_GPIO_SPI_SS			TEGRA_GPIO_PV0
 #define BB_GPIO_AWR			TEGRA_GPIO_PS7
-#define BB_GPIO_CWR			TEGRA_GPIO_PU5
+#define BB_GPIO_CWR			TEGRA_GPIO_PU5*/
+
+#define BB_GPIO_BB_EN			TEGRA_GPIO_PX7 //MODEM_ON
+#define BB_GPIO_BB_RST			TEGRA_GPIO_PU3 //MOD_nRST_PWRDWN
+#define BB_GPIO_SPI_INT			TEGRA_GPIO_PX0 //AP_Active
+#define BB_GPIO_SPI_SS			TEGRA_GPIO_PY3 //MOD_suspend_req
+#define BB_GPIO_AWR				TEGRA_GPIO_PY2 //AP_WAKE_MOD
+#define BB_GPIO_CWR				TEGRA_GPIO_PU5 //MOD_WAKE_AP
 
 #define XMM_GPIO_BB_ON			BB_GPIO_BB_EN
 #define XMM_GPIO_BB_RST			BB_GPIO_BB_RST
@@ -266,6 +293,15 @@ extern struct tegra_uart_platform_data cardhu_irda_pdata;
 #define XMM_GPIO_IPC_HSIC_SUS_REQ	BB_GPIO_SPI_SS
 #define XMM_GPIO_IPC_BB_WAKE		BB_GPIO_AWR
 #define XMM_GPIO_IPC_AP_WAKE		BB_GPIO_CWR
+#define XMM_GPIO_IPC_BB_FORCE_CRASH            TEGRA_GPIO_PN1
+
+/* Asus baseband GPIO addresses */
+#define BB_GPIO_VBAT_ON			TEGRA_GPIO_PC6  //MOD_VBAT_ON
+#define BB_GPIO_VBUS_ON			TEGRA_GPIO_PD2  //MOD_VBUS_ON
+#define BB_GPIO_SW_SEL			TEGRA_GPIO_PP1  //USB_SW_SEL
+#define BB_GPIO_RESET_IND		TEGRA_GPIO_PEE1 //n_MOD_RST_IND
+#define BB_GPIO_SAR_DET			TEGRA_GPIO_PR3  //SAR_DET#_3G
+#define BB_GPIO_SIM_DET			TEGRA_GPIO_PW3  //n_SIM_CD
 
 #define TDIODE_OFFSET	(10000)	/* in millicelsius */
 

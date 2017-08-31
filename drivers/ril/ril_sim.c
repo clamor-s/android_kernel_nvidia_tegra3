@@ -6,6 +6,8 @@
 #include <linux/irq.h>
 #include <linux/switch.h>
 
+#include <mach/board-cardhu-misc.h>
+
 #include "baseband-xmm-power.h"
 #include "ril.h"
 #include "ril_sim.h"
@@ -84,7 +86,11 @@ static void hotplug_work_handle(struct work_struct *work)
 	switch_set_state(&sim_sdev, sim_plug_state);
 
 	// wake up modem to refresh card state
-	baseband_xmm_ap_resume_work();
+	if (TEGRA3_PROJECT_TF300TG == tegra3_get_project_id()) {
+		baseband_xmm_ap_resume_work();
+	} else {
+		// do nothing
+	}
 }
 
 irqreturn_t sim_interrupt_handle(int irq, void *dev_id)
@@ -156,19 +162,31 @@ static ssize_t store_hotplug_detect_state(
 
 //**** sysfs list
 
-static struct device_attribute device_attr_nakasi3g[] = {
+static struct device_attribute device_attr_TF300TG[] = {
 	__ATTR(stop_hotplug_detect, _ATTR_MODE, show_hotplug_detect_state, store_hotplug_detect_state),
+	__ATTR_NULL,
+};
+
+static struct device_attribute device_attr_TF300TL[] = {
 	__ATTR_NULL,
 };
 
 //**** initialize and finalize
 
+static void null_work_handle(void)
+{
+	panic("default_work_handle should NOT be invoked (%s#%d)", __FILE__, __LINE__);
+}
+
 int sim_hot_plug_init(struct device *target_device, struct workqueue_struct *queue)
 {
-	int rc = 0, sysfs_cnt = 0;
+	int rc = 0, i = 0;
 	int sim_irq = gpio_to_irq(SIM_CARD_DET);
-	sim_plug_state = get_sim_plug_state_from_pin();
+	unsigned int project = tegra3_get_project_id();
+	struct device_attribute *device_attr_list;
+	int device_attr_list_len;
 
+    sim_plug_state = get_sim_plug_state_from_pin();
 	dev = target_device;
 
 	RIL_INFO(
@@ -180,21 +198,30 @@ int sim_hot_plug_init(struct device *target_device, struct workqueue_struct *que
 	// init work queue and delayed work
 	workqueue = queue;
 	INIT_DELAYED_WORK(&hotplug_work_task, hotplug_work_handle);
-	INIT_WORK(&modem_reset_start_task, freeze_sim_plug_state_work_handle);
-	INIT_WORK(&modem_reset_finish_task, release_sim_plug_state_work_handle);
+
+	if (TEGRA3_PROJECT_TF300TG == project) {
+		INIT_WORK(&modem_reset_start_task, freeze_sim_plug_state_work_handle);
+		INIT_WORK(&modem_reset_finish_task, release_sim_plug_state_work_handle);
+		device_attr_list = device_attr_TF300TG;
+		device_attr_list_len = ARRAY_SIZE(device_attr_TF300TG);
+	} else if (TEGRA3_PROJECT_TF300TL == project) {
+		INIT_WORK(&modem_reset_start_task, null_work_handle);
+		INIT_WORK(&modem_reset_finish_task, null_work_handle);
+		device_attr_list = device_attr_TF300TL;
+		device_attr_list_len = ARRAY_SIZE(device_attr_TF300TL);
+	} else {
+		return -1;
+	}
 
 	// create sysfses
-	for (sysfs_cnt = 0;
-			sysfs_cnt < (ARRAY_SIZE(device_attr_nakasi3g) - 1);
-			++sysfs_cnt) {
-		rc = device_create_file(dev, &device_attr_nakasi3g[sysfs_cnt]);
+	for (i = 0; i < (device_attr_list_len - 1); i++) {
+		rc = device_create_file(dev, &device_attr_list[i]);
 		if (rc < 0) {
-			RIL_ERR("%s: create file of [%d] failed, err = %d\n", __func__,
-					sysfs_cnt, rc);
+			RIL_ERR("%s: create file of [%d] failed, err = %d\n", __func__, i, rc);
 			goto create_sysfs_failed;
 		}
 	}
-
+	
 	// register switch class
 	rc = 0;
 	sim_sdev.name = NAME_SIM_PLUG;
@@ -207,32 +234,41 @@ int sim_hot_plug_init(struct device *target_device, struct workqueue_struct *que
 
 	if (rc < 0) {
 		RIL_ERR("Could not register switch device, rc = %d\n", rc);
-		goto create_sysfs_failed;
+		return -1;
 	}
 
 	RIL_INFO("request switch class successfully\n");
 	return 0;
 
 create_sysfs_failed:
-	while (sysfs_cnt >= 0) {
-		device_remove_file(dev, &device_attr_nakasi3g[sysfs_cnt]);
-		--sysfs_cnt;
+	while (i >= 0) {
+		device_remove_file(dev, &device_attr_list[i]);
+		--i;
 	}
 	return rc;
 }
 
 void sim_hot_plug_exit(void)
 {
-	int sysfs_cnt;
+	int i;
+
+	struct device_attribute *device_attr_list;
+	int device_attr_list_len;
 
 	// destroy switch devices
 	switch_dev_unregister(&sim_sdev);
 
 	// destroy sysfses
-	for (sysfs_cnt = 0;
-			sysfs_cnt < (ARRAY_SIZE(device_attr_nakasi3g) - 1);
-			++sysfs_cnt) {
-		device_remove_file(dev, &device_attr_nakasi3g[sysfs_cnt]);
+	if (tegra3_get_project_id() == TEGRA3_PROJECT_TF300TG) {
+		device_attr_list = device_attr_TF300TG;
+		device_attr_list_len = ARRAY_SIZE(device_attr_TF300TG);
+	} else {
+		device_attr_list = device_attr_TF300TL;
+		device_attr_list_len = ARRAY_SIZE(device_attr_TF300TL);
+	}
+
+	for (i = 0; i < (device_attr_list_len - 1); i++) {
+		device_remove_file(dev, &device_attr_list[i]);
 	}
 }
 

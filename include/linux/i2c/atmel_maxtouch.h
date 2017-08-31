@@ -359,7 +359,7 @@ struct mxt_data {
 	u16 report_id_count;
 	struct report_id_map *rid_map;
 	struct mxt_object *object_table;
-      struct wake_lock wakelock;
+	struct wake_lock wakelock;
 	u16 msg_proc_addr;
 	u8 message_size;
 
@@ -429,7 +429,7 @@ u16 get_object_address(uint8_t object_type,
 	get_object_address(object_type, 0, mxt->object_table,           \
 			   mxt->device_info.num_objs)
 
-const struct mxt_object* get_object(uint8_t object_type, 
+struct mxt_object* get_object(uint8_t object_type, 
 	                 const struct mxt_data *mxt);
 
 int __devinit mxt_identify(struct i2c_client *client,

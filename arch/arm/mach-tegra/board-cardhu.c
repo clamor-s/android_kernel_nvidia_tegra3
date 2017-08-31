@@ -306,6 +306,15 @@ static struct wm8903_platform_data cardhu_wm8903_pdata = {
 		0,
 	},
 };
+
+#ifdef CONFIG_DSP_FM34
+static const struct i2c_board_info cardhu_dsp_board_info[] = {
+	{
+		I2C_BOARD_INFO("dsp_fm34", 0x60),
+	},
+};
+#endif	
+  
 static struct i2c_board_info __initdata rt5631_board_info = {
 	I2C_BOARD_INFO("rt5631", 0x1a),
 };
@@ -492,6 +501,10 @@ static void cardhu_i2c_init(void)
 		default:
 			break;
 	}
+	
+#ifdef CONFIG_DSP_FM34
+	i2c_register_board_info(0, cardhu_dsp_board_info, 1);
+#endif
 }
 
 static struct platform_device *cardhu_uart_devices[] __initdata = {

@@ -68,7 +68,7 @@ static int corenpdrq_write(struct file *file, const char __user *userbuf,
 	size_t count, loff_t *f_pos)
 {
 	char buf[32];
-	uint32_t in_val = 0;
+	long unsigned int in_val = 0;
 	uint32_t val = 0;
 
 	if (sizeof buf <= count)

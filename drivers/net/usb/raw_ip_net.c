@@ -30,6 +30,7 @@
 #include <linux/etherdevice.h>
 #include <linux/usb.h>
 
+#include <mach/board-cardhu-misc.h>
 #define BASEBAND_USB_NET_DEV_NAME		"rmnet%d"
 
 /* ethernet packet ethertype for IP packets */
@@ -1158,9 +1159,15 @@ static int usb_net_raw_ip_init(void)
 {
 	int i;
 	int err;
+	u32 project_into = tegra3_get_project_id();										
 
 	pr_debug("usb_net_raw_ip_init {\n");
 
+	if (TEGRA3_PROJECT_TF300TG != project_into) {
+		pr_debug("raw_ip_net is not needed for this device. Do not initialize.");
+		return;
+	}
+	
 	err = usb_register(&baseband_usb_driver);
 	if (err < 0) {
 		pr_err("cannot open usb driver - err %d\n", err);
@@ -1204,8 +1211,14 @@ error_exit:
 static void usb_net_raw_ip_exit(void)
 {
 	int i;
+	u32 project_into = tegra3_get_project_id();
 
 	pr_debug("usb_net_raw_ip_exit {\n");
+
+	if (TEGRA3_PROJECT_TF300TG != project_into) {
+		pr_debug("raw_ip_net is not needed for this device.");
+		return;
+	}
 
 	/* destroy multiple raw-ip network devices */
 	for (i = 0; i < max_intfs; i++) {

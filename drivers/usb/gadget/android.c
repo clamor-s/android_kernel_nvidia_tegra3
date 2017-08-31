@@ -29,6 +29,7 @@
 #include <linux/usb/gadget.h>
 
 #include "gadget_chips.h"
+#include <../../../arch/arm/mach-tegra/include/mach/board-cardhu-misc.h>
 
 /*
  * Kbuild is not very cooperative with respect to linking separately
@@ -1037,6 +1038,20 @@ static int android_init_functions(struct android_usb_function **functions,
 	int index = 0;
 
 	for (; (f = *functions++); index++) {
+		if (!strcmp(f->name, "acm")) {
+			if (tegra3_get_project_id() != TEGRA3_PROJECT_TF300TG) {
+				pr_err("pid != TF300TG, cancel acm ports\n");
+				continue;
+			}
+		}
+
+		if (!strcmp(f->name, "gser")) {
+			if (tegra3_get_project_id() != TEGRA3_PROJECT_TF300TL) {
+				pr_err("pid != TF300TL, cancel serial ports\n");
+				continue;
+			}
+		}
+		
 		f->dev_name = kasprintf(GFP_KERNEL, "f_%s", f->name);
 		f->dev = device_create(android_class, dev->dev,
 				MKDEV(0, index), f, f->dev_name);

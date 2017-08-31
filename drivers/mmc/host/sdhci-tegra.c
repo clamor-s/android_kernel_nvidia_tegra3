@@ -42,11 +42,11 @@
 #include <mach/sdhci.h>
 #include <mach/pinmux.h>
 #include <mach/clk.h>
+#include <mach/io_dpd.h>
 
 #include "sdhci-pltfm.h"
-#ifdef CONFIG_MACH_GROUPER
 #include <../gpio-names.h>
-#endif
+#include <mach/board-cardhu-misc.h>
 
 #define SDHCI_VNDR_CLK_CTRL	0x100
 #define SDHCI_VNDR_CLK_CTRL_SDMMC_CLK	0x1
@@ -2106,27 +2106,34 @@ static int tegra_sdhci_suspend(struct sdhci_host *sdhci)
 		}
 	}
 
-#ifdef CONFIG_MACH_GROUPER
-	if (!strcmp(mmc_hostname(sdhci->mmc), "mmc0")) {
-		pr_debug("%s: pull up data pin", mmc_hostname(sdhci->mmc));
-		gpio_request(TEGRA_GPIO_PAA0, "PAA0");
-		gpio_request(TEGRA_GPIO_PAA1, "PAA1");
-		gpio_request(TEGRA_GPIO_PAA2, "PAA2");
-		gpio_request(TEGRA_GPIO_PAA3, "PAA3");
-		gpio_request(TEGRA_GPIO_PAA4, "PAA4");
-		gpio_request(TEGRA_GPIO_PAA5, "PAA5");
-		gpio_request(TEGRA_GPIO_PAA6, "PAA6");
-		gpio_request(TEGRA_GPIO_PAA7, "PAA7");
-		gpio_direction_output(TEGRA_GPIO_PAA0, 1);
-		gpio_direction_output(TEGRA_GPIO_PAA1, 1);
-		gpio_direction_output(TEGRA_GPIO_PAA2, 1);
-		gpio_direction_output(TEGRA_GPIO_PAA3, 1);
-		gpio_direction_output(TEGRA_GPIO_PAA4, 1);
-		gpio_direction_output(TEGRA_GPIO_PAA5, 1);
-		gpio_direction_output(TEGRA_GPIO_PAA6, 1);
-		gpio_direction_output(TEGRA_GPIO_PAA7, 1);
-    }
-#endif
+	if (tegra_host->dpd) {
+		mutex_lock(&tegra_host->dpd->delay_lock);
+		tegra_host->dpd->need_delay_dpd = 1;
+		mutex_unlock(&tegra_host->dpd->delay_lock);
+	}
+
+	if ((tegra3_get_project_id() == TEGRA3_PROJECT_TF300T || tegra3_get_project_id() == TEGRA3_PROJECT_TF300TL ||
+                tegra3_get_project_id() == TEGRA3_PROJECT_TF300TG || tegra3_get_project_id() == TEGRA3_PROJECT_ME301T) &&
+                !strcmp(mmc_hostname(sdhci->mmc), "mmc0")) {
+
+                gpio_request(TEGRA_GPIO_PAA0, "PAA0");
+                gpio_request(TEGRA_GPIO_PAA1, "PAA1");
+                gpio_request(TEGRA_GPIO_PAA2, "PAA2");
+                gpio_request(TEGRA_GPIO_PAA3, "PAA3");
+                gpio_request(TEGRA_GPIO_PAA4, "PAA4");
+                gpio_request(TEGRA_GPIO_PAA5, "PAA5");
+                gpio_request(TEGRA_GPIO_PAA6, "PAA6");
+                gpio_request(TEGRA_GPIO_PAA7, "PAA7");
+
+                gpio_direction_output(TEGRA_GPIO_PAA0, 1);
+                gpio_direction_output(TEGRA_GPIO_PAA1, 1);
+                gpio_direction_output(TEGRA_GPIO_PAA2, 1);
+                gpio_direction_output(TEGRA_GPIO_PAA3, 1);
+                gpio_direction_output(TEGRA_GPIO_PAA4, 1);
+                gpio_direction_output(TEGRA_GPIO_PAA5, 1);
+                gpio_direction_output(TEGRA_GPIO_PAA6, 1);
+                gpio_direction_output(TEGRA_GPIO_PAA7, 1);
+        }
 
 	return 0;
 }
@@ -2143,6 +2150,20 @@ static int tegra_sdhci_resume(struct sdhci_host *sdhci)
 
 	if (gpio_is_valid(plat->cd_gpio))
 		tegra_host->card_present = (gpio_get_value(plat->cd_gpio) == 0);
+
+	if ((tegra3_get_project_id() == TEGRA3_PROJECT_TF300T || tegra3_get_project_id() == TEGRA3_PROJECT_TF300TL ||
+                tegra3_get_project_id() == TEGRA3_PROJECT_TF300TG || tegra3_get_project_id() == TEGRA3_PROJECT_ME301T) &&
+                !strcmp(mmc_hostname(sdhci->mmc), "mmc0")) {
+
+                gpio_free(TEGRA_GPIO_PAA0);
+                gpio_free(TEGRA_GPIO_PAA1);
+                gpio_free(TEGRA_GPIO_PAA2);
+                gpio_free(TEGRA_GPIO_PAA3);
+                gpio_free(TEGRA_GPIO_PAA4);
+                gpio_free(TEGRA_GPIO_PAA5);
+                gpio_free(TEGRA_GPIO_PAA6);
+                gpio_free(TEGRA_GPIO_PAA7);
+        }
 
 	/* Enable the power rails if any */
 	if (tegra_host->card_present) {
@@ -2172,20 +2193,6 @@ static int tegra_sdhci_resume(struct sdhci_host *sdhci)
 		sdhci_writeb(sdhci, SDHCI_POWER_ON, SDHCI_POWER_CONTROL);
 		sdhci->pwr = 0;
 	}
-
-#ifdef CONFIG_MACH_GROUPER
-	if (!strcmp(mmc_hostname(sdhci->mmc), "mmc0")) {
-		pr_debug("%s: disable data pin", mmc_hostname(sdhci->mmc));
-		gpio_free(TEGRA_GPIO_PAA0);
-		gpio_free(TEGRA_GPIO_PAA1);
-		gpio_free(TEGRA_GPIO_PAA2);
-		gpio_free(TEGRA_GPIO_PAA3);
-		gpio_free(TEGRA_GPIO_PAA4);
-		gpio_free(TEGRA_GPIO_PAA5);
-		gpio_free(TEGRA_GPIO_PAA6);
-		gpio_free(TEGRA_GPIO_PAA7);
-    }
-#endif
 
 	return 0;
 }

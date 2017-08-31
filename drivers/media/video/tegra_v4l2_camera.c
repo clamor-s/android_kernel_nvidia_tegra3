@@ -24,6 +24,7 @@
 
 #include <mach/iomap.h>
 #include <mach/powergate.h>
+#include <mach/board-cardhu-misc.h>
 
 #include <media/soc_camera.h>
 #include <media/soc_mediabus.h>
@@ -1979,7 +1980,15 @@ int tegra_camera_mclk_on_off(int on)
     if (on) {
         printk("camera mclock on\n");
         clk_set_rate(p_cam_dev->csus_clk, 6000000);
-        clk_set_rate(p_cam_dev->vi_sensor_clk, 24000000);
+	if ((tegra3_get_project_id()==TEGRA3_PROJECT_TF300T) ||
+            (tegra3_get_project_id()==TEGRA3_PROJECT_TF300TG) ||
+            (tegra3_get_project_id()==TEGRA3_PROJECT_TF300TL) ||
+            (tegra3_get_project_id()==TEGRA3_PROJECT_TF500T)  ||
+            (tegra3_get_project_id()==TEGRA3_PROJECT_ME301T)  ||
+            (tegra3_get_project_id()==TEGRA3_PROJECT_ME301TL))
+            clk_set_rate(p_cam_dev->vi_sensor_clk, 12000000);
+        else
+            clk_set_rate(p_cam_dev->vi_sensor_clk, 24000000);
         clk_enable(p_cam_dev->vi_sensor_clk);
         clk_enable(p_cam_dev->csus_clk);
     } else{
@@ -1990,6 +1999,7 @@ int tegra_camera_mclk_on_off(int on)
 
     return 0;
 }
+EXPORT_SYMBOL(tegra_camera_mclk_on_off);
 
 static int __devexit tegra_camera_remove(struct nvhost_device *ndev)
 {

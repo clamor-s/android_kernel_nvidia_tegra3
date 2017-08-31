@@ -37,4 +37,6 @@ struct tegra_camera_platform_data {
 	bool			continuous_clk;	/* For CSI port only */
 };
 
+extern int tegra_camera_mclk_on_off(int on);
+
 #endif /* _TEGRA_CAMERA_H_ */

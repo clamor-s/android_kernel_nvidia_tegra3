@@ -1351,7 +1351,7 @@ static void fixup_generic(struct usb_serial_driver *device)
 	set_to_generic_if_null(device, prepare_write_buffer);
 }
 
-static int usb_serial_register(struct usb_serial_driver *driver)
+int usb_serial_register(struct usb_serial_driver *driver)
 {
 	int retval;
 
@@ -1384,8 +1384,9 @@ static int usb_serial_register(struct usb_serial_driver *driver)
 	mutex_unlock(&table_lock);
 	return retval;
 }
+EXPORT_SYMBOL_GPL(usb_serial_register);
 
-static void usb_serial_deregister(struct usb_serial_driver *device)
+void usb_serial_deregister(struct usb_serial_driver *device)
 {
 	printk(KERN_INFO "USB Serial deregistering driver %s\n",
 	       device->description);
@@ -1394,6 +1395,7 @@ static void usb_serial_deregister(struct usb_serial_driver *device)
 	usb_serial_bus_deregister(device);
 	mutex_unlock(&table_lock);
 }
+EXPORT_SYMBOL_GPL(usb_serial_deregister);
 
 /**
  * usb_serial_register_drivers - register drivers for a usb-serial module
@@ -1478,3 +1480,4 @@ MODULE_LICENSE("GPL");
 
 module_param(debug, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(debug, "Debug enabled or not");
+

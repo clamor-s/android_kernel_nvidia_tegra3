@@ -71,6 +71,7 @@ config SND_SOC_TEGRA_WM8903
 	select SND_SOC_WM8903
 	select SND_SOC_SPDIF
 	select SND_SOC_TEGRA30_DAM if !ARCH_TEGRA_2x_SOC
+	select AUDIO_DOCK
 	help
 	  Say Y or M here if you want to add support for SoC audio on Tegra
 	  boards using the WM8093 codec. Currently, the supported boards are
@@ -248,6 +249,12 @@ config SND_SOC_TEGRA_MAX98095
 	  boards using the MAX98095 codec. Currently, only supported board is
 	  Cardhu.
 
+config AUDIO_DOCK
+        bool
+        default n
+        help
+          Say Y or N here if you want to add support for accessory audio dock.
+	  
 config MACH_HAS_SND_SOC_TEGRA_CS42L73
 	bool
 	help

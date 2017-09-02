@@ -38,6 +38,9 @@
 
 #include "wm8903.h"
 
+struct snd_soc_codec *wm8903_codec;
+EXPORT_SYMBOL(wm8903_codec);
+
 /* Register defaults at reset */
 static const struct reg_default wm8903_reg_defaults[] = {
 	{ 4,  0x0018 },     /* R4   - Bias Control 0 */

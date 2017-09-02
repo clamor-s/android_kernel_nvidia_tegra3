@@ -48,8 +48,11 @@
 #include <asm/unaligned.h>
 #include <asm/dma.h>
 
+#include <linux/gpio.h>
+#include <../gpio-names.h>
 #include <mach/usb_phy.h>
 #include <mach/iomap.h>
+#include <mach/board-cardhu-misc.h>
 
 #include "tegra_udc.h"
 
@@ -73,6 +76,47 @@
 				USB_DIR_IN) : ((EP)->desc->bEndpointAddress \
 				& USB_DIR_IN) == USB_DIR_IN)
 
+/* Enable or disable the callback for the other driver. */
+#define BATTERY_CALLBACK_ENABLED 1
+#define DOCK_EC_ENABLED 1
+#define GET_USB_CABLE_STATUS_ENABLED 1
+
+extern void  register_usb_cable_status_cb(unsigned  (*fn) (void));
+extern int usb_suspend_tag;
+extern unsigned int previous_cable_status;
+extern int cable_detect_callback(unsigned cable_state);
+
+struct cable_info {
+	/*
+	* The cable status:
+	* 0000: no cable
+	* 0001: USB cable
+	* 0011: AC apdater
+	*/
+	unsigned int cable_status;
+	unsigned int p1801_ac_status;
+	int ac_15v_connected;
+	struct delayed_work gpio_limit_set1_detection_work;
+	struct delayed_work p1801_ac_detection_work;
+	struct mutex cable_info_mutex;
+};
+
+static struct cable_info s_cable_info;
+
+#if BATTERY_CALLBACK_ENABLED
+extern void battery_callback(unsigned cable_status);
+#endif
+#if DOCK_EC_ENABLED
+extern int asusdec_is_ac_over_10v_callback(void);
+extern int asusAudiodec_cable_type_callback(void);
+#endif
+#if GET_USB_CABLE_STATUS_ENABLED
+unsigned int tegra_get_usb_cable_status(void)
+{
+	printk(KERN_INFO "The USB cable status = %x\n", s_cable_info.cable_status);
+	return s_cable_info.cable_status;
+}
+#endif
 
 static const char driver_name[] = "tegra-udc";
 static const char driver_desc[] = DRIVER_DESC;
@@ -1450,6 +1494,21 @@ static void tegra_detect_charging_type_is_cdp_or_dcp(struct tegra_udc *udc)
 
 	spin_unlock_irqrestore(&udc->lock, flags);
 }
+
+//For the issue of USB AC adaptor inserted half on PAD+Docking
+void fsl_dock_ec_callback(void)
+{
+	int dock_in = 0;
+
+	if(tegra3_get_project_id() != TEGRA3_PROJECT_ME301T) {
+		dock_in = !(gpio_get_value(TEGRA_GPIO_PU4));
+		printk(KERN_INFO "%s cable_status=%d\n", __func__, s_cable_info.cable_status);
+		if(dock_in == 1 && (s_cable_info.cable_status != 0) && (the_udc->connect_type == CONNECT_TYPE_NON_STANDARD_CHARGER)) {//dock in
+			schedule_delayed_work(&s_cable_info.gpio_limit_set1_detection_work, 0*HZ);
+		}
+	}
+}
+EXPORT_SYMBOL(fsl_dock_ec_callback);
 
 static int tegra_detect_cable_type(struct tegra_udc *udc)
 {

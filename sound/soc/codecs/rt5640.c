@@ -23,10 +23,12 @@
 #include <sound/soc-dapm.h>
 #include <sound/initval.h>
 #include <sound/tlv.h>
-#include <mach/board-grouper-misc.h>
+#include <mach/board-cardhu-misc.h>
 #include <mach/pinmux.h>
+
 #include "../board.h"
-#include "../board-grouper.h"
+#include <../board-cardhu.h>
+#include <../gpio-names.h>
 
 #include <linux/input.h>
 #include <linux/debugfs.h>
@@ -1029,10 +1031,8 @@ static int rt5640_vol_rescale_put(struct snd_kcontrol *kcontrol,
 
 static const struct snd_kcontrol_new rt5640_snd_controls[] = {
 	/* Speaker Output Volume */
-#ifdef CONFIG_MACH_GROUPER
 	SOC_DOUBLE("Speaker Playback Switch", RT5640_SPK_VOL,
 		RT5640_L_MUTE_SFT, RT5640_R_MUTE_SFT, 1, 1),
-#endif
 	SOC_DOUBLE_EXT_TLV("Speaker Playback Volume", RT5640_SPK_VOL,
 		RT5640_L_VOL_SFT, RT5640_R_VOL_SFT, VOL_RESCALE_MIX_RANGE, 0,
 		rt5640_vol_rescale_get, rt5640_vol_rescale_put, out_vol_tlv),
@@ -1093,10 +1093,8 @@ static const struct snd_kcontrol_new rt5640_snd_controls[] = {
 	/* DMIC */
 	SOC_ENUM_EXT("DMIC Switch", rt5640_dmic_enum,
 		rt5640_dmic_get, rt5640_dmic_put),
-#ifdef CONFIG_MACH_GROUPER
 	SOC_ENUM("ADC IF1 SWITCH", rt5640_if1_adc_enum),
 	SOC_ENUM("DAC IF1 SWITCH", rt5640_if1_dac_enum),
-#endif
 
 #ifdef RT5640_REG_RW
 	{
@@ -1910,7 +1908,6 @@ static int rt5640_set_dmic1_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	unsigned int val, mask;
 	struct rt5640_priv *rt5640 = snd_soc_codec_get_drvdata(codec);
 	mutex_lock(&rt5640->lock);
 	CHECK_I2C_SHUTDOWN(rt5640, codec)
@@ -1991,7 +1988,6 @@ static int rt5640_set_dmic2_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	unsigned int val, mask;
 	struct rt5640_priv *rt5640 = snd_soc_codec_get_drvdata(codec);
 	mutex_lock(&rt5640->lock);
 	CHECK_I2C_SHUTDOWN(rt5640, codec)
@@ -3272,7 +3268,6 @@ static int rt5640_probe(struct snd_soc_codec *codec)
 {
 	struct rt5640_priv *rt5640 = snd_soc_codec_get_drvdata(codec);
 	int ret;
-	u16 val;
 	mutex_lock(&rt5640->lock);
 	CHECK_I2C_SHUTDOWN(rt5640, codec)
 

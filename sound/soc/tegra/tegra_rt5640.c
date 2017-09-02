@@ -43,6 +43,7 @@
 #include <mach/tegra_asoc_pdata.h>
 #include <mach/gpio-tegra.h>
 #include <mach/tegra_rt5640_pdata.h>
+#include <mach/board-cardhu-misc.h>
 
 #include <sound/core.h>
 #include <sound/jack.h>
@@ -73,6 +74,8 @@
 
 struct tegra30_i2s *i2s_tfa = NULL;
 struct snd_soc_codec *codec_rt;
+
+extern void audio_dock_init(void);
 
 struct tegra_rt5640 {
 	struct tegra_asoc_utils_data util_data;
@@ -1220,7 +1223,24 @@ static struct platform_driver tegra_rt5640_driver = {
 
 static int __init tegra_rt5640_modinit(void)
 {
-	return platform_driver_register(&tegra_rt5640_driver);
+	int ret = 0;
+	u32 project_info = tegra3_get_project_id();
+	 
+	printk(KERN_INFO "%s+ #####\n", __func__);
+	if(project_info == TEGRA3_PROJECT_TF500T ||
+		project_info == TEGRA3_PROJECT_ME301T ||
+		project_info == TEGRA3_PROJECT_ME301TL ||
+		project_info == TEGRA3_PROJECT_ME570T){
+		printk("%s(): support codec rt5642\n", __func__);
+	}else{
+		printk("%s(): not support codec rt5642\n", __func__);
+		return 0;
+	}
+
+	ret = platform_driver_register(&tegra_rt5640_driver);
+	audio_dock_init();
+	printk(KERN_INFO "%s- #####\n", __func__);
+	return ret;
 }
 module_init(tegra_rt5640_modinit);
 

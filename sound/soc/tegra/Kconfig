@@ -218,7 +218,6 @@ config SND_SOC_TEGRA_RT5640
 	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
 	select SND_SOC_TEGRA30_SPDIF if !ARCH_TEGRA_2x_SOC
 	select SND_SOC_RT5640
-	select SND_SOC_RT5642
 	select SND_HWDEP
 	select SND_SOC_SPDIF
 	select SND_SOC_TEGRA30_DAM if !ARCH_TEGRA_2x_SOC
@@ -226,6 +225,28 @@ config SND_SOC_TEGRA_RT5640
 	  Say Y or M here if you want to add support for SoC audio on Tegra
 	  boards using the ALC5640 codec. Currently, the supported boards
 	  are Kai,Cardhu,Dalmore and Macallan.
+
+config MACH_HAS_SND_SOC_TEGRA_RT5642
+	bool
+	help
+	  Machines that use the SND_SOC_TEGRA_RT5642 driver should select
+	  this config option, in order to allow the user to enable
+	  SND_SOC_TEGRA_RT5642.
+
+config SND_SOC_TEGRA_RT5642
+	tristate "SoC Audio support for Tegra boards using a RT5642 codec"
+	depends on SND_SOC_TEGRA && I2C && TEGRA_DC
+	depends on MACH_HAS_SND_SOC_TEGRA_RT5642
+	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_SPDIF if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_RT5642
+	select SND_HWDEP
+	select SND_SOC_SPDIF
+	select SND_SOC_TEGRA30_DAM if !ARCH_TEGRA_2x_SOC
+	select AUDIO_DOCK
+	help
+	  Say Y or M here if you want to add support for SoC audio on Tegra
+	  boards using the RT5642 codec.
 
 config MACH_HAS_SND_SOC_TEGRA_MAX98095
 	bool

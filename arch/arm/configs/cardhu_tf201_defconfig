@@ -2355,8 +2355,8 @@ CONFIG_TEGRA_RPC=y
 CONFIG_TEGRA_NVAVP=y
 CONFIG_TEGRA_NVAVP_AUDIO=y
 CONFIG_VIDEO_YUV=y
-CONFIG_VIDEO_FJM6MO=y
-CONFIG_VIDEO_ICATCH7002A=y
+# CONFIG_VIDEO_FJM6MO is not set        // camera driver. it should be fixed and enabled
+# CONFIG_VIDEO_ICATCH7002A is not set   // camera driver. it should be fixed and enabled
 CONFIG_TEGRA_DTV=y
 CONFIG_VIDEO_MI1040=y
 # CONFIG_VIDEO_OV5650 is not set

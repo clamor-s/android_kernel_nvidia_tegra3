@@ -54,7 +54,8 @@ config SND_SOC_TEGRA30_SPDIF
 	  below.
 
 config MACH_HAS_SND_SOC_TEGRA_RT5631
-	bool
+	tristate
+  	default y
 	help
 	  Machines that use the SND_SOC_TEGRA_RT5631 driver should select
 	  this config option, in order to allow the user to enable

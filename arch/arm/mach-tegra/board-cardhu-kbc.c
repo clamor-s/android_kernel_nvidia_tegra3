@@ -50,8 +50,8 @@
 
 static struct gpio_keys_button cardhu_int_keys[] = {
 	[0] = GPIO_KEY(KEY_POWER, PV0, 1),
-	[1] = GPIO_KEY(KEY_VOLUMEUP, PQ2, 0),
-	[2] = GPIO_KEY(KEY_VOLUMEDOWN, PQ3, 0),
+	[1] = GPIO_KEY(KEY_ENTER, PQ2, 0),
+	[2] = GPIO_KEY(KEY_DOWN, PQ3, 0),
 };
 
 static struct gpio_keys_platform_data cardhu_int_keys_pdata = {

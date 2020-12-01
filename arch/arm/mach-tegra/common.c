@@ -969,11 +969,14 @@ void __init tegra_ram_console_debug_reserve(unsigned long ram_console_size)
 	res->start = memblock_end_of_DRAM() - ram_console_size;
 	res->end = res->start + ram_console_size - 1;
 
+#ifdef CONFIG_KEXEC_HARDBOOT
 	// Register an extra 1M before ramconsole to store kexec stuff
-	real_start = res->start - SZ_1M;
-	real_size = ram_console_size + SZ_1M;
-
+	unsigned long real_start = res->start - SZ_1M;
+	unsigned long real_size = ram_console_size + SZ_1M;
 	ret = memblock_remove(real_start, real_size);
+#else
+	ret = memblock_remove(res->start, ram_console_size);
+#endif
 	if (ret)
 		goto fail;
 

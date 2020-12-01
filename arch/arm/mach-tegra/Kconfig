@@ -585,6 +585,15 @@ config TEGRA_PREINIT_CLOCKS
 	  Preinitialize Tegra clocks to known states before actual full-
 	  scale clock initialization starts.
 
+config KEXEC_HARDBOOT_RECOVERY_CARDHU
+	bool "Reboot to recovery partition when using Kexec-hardboot"
+	depends on MACH_CARDHU
+	depends on KEXEC_HARDBOOT
+	default n
+	help
+	  Reboot with the recovery kernel since the boot kernel decompressor may
+	  not support the hardboot jump.
+
 config TEGRA_PREPOWER_WIFI
 	bool "Pre-power up WiFi "
 	default n

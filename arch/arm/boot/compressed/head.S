@@ -224,8 +224,9 @@ catags_cpy:
 
 no_atags_cpy:
 		/* Load boot arguments and jump to kexec kernel. */
-		ldr	r0, [r3, #12]			@ kexec_boot_atags (r2: boot_atags)
+		mov r0, #0					@ Must be 0
 		ldr	r1, [r3, #8]			@ kexec_mach_type
+		@ (r2: boot_atags)
 		ldr	pc, [r3, #4]			@ kexec_start_address
 
 		.ltorg

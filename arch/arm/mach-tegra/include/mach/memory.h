@@ -35,7 +35,7 @@
 
 #if defined(CONFIG_KEXEC_HARDBOOT)
 #if defined(CONFIG_MACH_CARDHU)
-#define KEXEC_HB_PAGE_ADDR		UL(0xBEA00000)
+#define KEXEC_HB_PAGE_ADDR		UL(0xBAE00000)
 #else
 #error "Adress for kexec hardboot page not defined"
 #endif

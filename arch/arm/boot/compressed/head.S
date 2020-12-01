@@ -153,7 +153,7 @@ start:
 		mov	r0, #0
 		str	r0, [r3]
 
-/* Copy the kernel tagged list (atags):
+/* Copy the kernel tagged list (atags) or device tree (dtb):
  *
  * The kernel requires atags to be located in a direct-mapped region,
  * usually below the kernel in the first 16 kB of RAM.  If they're above
@@ -174,9 +174,16 @@ start:
  * something, causing problems down the road. It's worked every time and I
  * didn't notice any problem so far though.
  *
+ * Ion: Added kernel_boot_atags_len if atags is actually a DTB pointer
+ * the original work to kexec-hardboot dtb devices was done by Vojtech Bocek and this
+ * is merely a backport to support dtb loading from older kernels like this.
+ * kernel_boot_atags_len is checked and if contains non 0 size we manually copy all
+ * data to original expected location and continue.
+ *
  * r4: zreladdr (kernel start)
  * r8: kexec_boot_atags
- * r2: boot_atags */
+ * r2: boot_atags
+ */
 		ldr	r8, [r3, #12]			@ kexec_boot_atags (r2: boot_atags)
 		ldr	r4, =zreladdr			@ zreladdr
 
@@ -184,6 +191,16 @@ start:
 		cmp	r8, r4
 		blo	no_atags_cpy
 
+		/* Check if atag len is set, this mean atag pointer is a dtb pointer */
+		ldr	r0, [r3, #16]			@ kexec_boot_atags_len
+		cmp	r0, #0
+		beq	catags_start
+
+		/* Okay is a DTB, set r2 pointer and jump */
+		mov r2, r8
+		b no_atags_cpy
+
+catags_start:
 		/* r0: min(zreladdr, pc) */
 		mov	r0, pc
 		cmp	r4, r0

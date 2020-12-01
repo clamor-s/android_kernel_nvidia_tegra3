@@ -24,6 +24,7 @@ extern unsigned long kexec_indirection_page;
 extern unsigned long kexec_mach_type;
 extern unsigned long kexec_boot_atags;
 #ifdef CONFIG_KEXEC_HARDBOOT
+extern unsigned long kexec_boot_atags_len;
 extern unsigned long kexec_hardboot;
 void (*kexec_hardboot_hook)(void);
 #endif
@@ -52,8 +53,12 @@ int machine_kexec_prepare(struct kimage *image)
 		if (err)
 			return err;
 
-		if (be32_to_cpu(header) == OF_DT_HEADER)
+		if (be32_to_cpu(header) == OF_DT_HEADER) {
 			kexec_boot_atags = current_segment->mem;
+#ifdef CONFIG_KEXEC_HARDBOOT
+			kexec_boot_atags_len = current_segment->memsz;
+#endif
+		}
 	}
 	return 0;
 }

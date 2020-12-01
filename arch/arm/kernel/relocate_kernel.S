@@ -79,13 +79,17 @@ hardboot:
 	 *  0: KEXEC_HB_PAGE_MAGIC
 	 *  4: kexec_start_address
 	 *  8: kexec_mach_type
-	 * 12: kexec_boot_atags */
+	 * 12: kexec_boot_atags
+	 * 16: kexec_boot_atags_len
+	 */
 	ldr	r0, =KEXEC_HB_PAGE_ADDR
 	str	r1, [r0, #4]
 	ldr	r1, kexec_mach_type
 	str	r1, [r0, #8]
 	ldr	r1, kexec_boot_atags
 	str	r1, [r0, #12]
+	ldr	r1, kexec_boot_atags_len
+	str	r1, [r0, #16]
 	ldr	r1, =KEXEC_HB_PAGE_MAGIC
 	str	r1, [r0]
 
@@ -121,6 +125,10 @@ kexec_boot_atags:
 	.long	0x0
 
 #ifdef CONFIG_KEXEC_HARDBOOT
+	.globl kexec_boot_atags_len
+kexec_boot_atags_len:
+	.long	0x0
+
 	.globl kexec_hardboot
 kexec_hardboot:
 	.long	0x0

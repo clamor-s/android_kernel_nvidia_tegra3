@@ -960,7 +960,6 @@ void __init tegra_ram_console_debug_reserve(unsigned long ram_console_size)
 {
 	struct resource *res;
 	long ret;
-	unsigned long real_start, real_size;
 
 	res = platform_get_resource(&ram_console_device, IORESOURCE_MEM, 0);
 	if (!res)

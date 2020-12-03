@@ -125,12 +125,11 @@ static int tegra_fb_set_par(struct fb_info *info)
 			return -EINVAL;
 		}
 		/* if line_length unset, then pad the stride */
-		if (!info->fix.line_length) {
-			info->fix.line_length = var->xres * var->bits_per_pixel
-				/ 8;
+		//if (!info->fix.line_length) {
+			info->fix.line_length = var->xres * var->bits_per_pixel / 8;
 			info->fix.line_length = round_up(info->fix.line_length,
 						TEGRA_LINEAR_PITCH_ALIGNMENT);
-		}
+		//}
 		tegra_fb->win->stride = info->fix.line_length;
 		tegra_fb->win->stride_uv = 0;
 		tegra_fb->win->phys_addr_u = 0;
@@ -288,10 +287,10 @@ static int tegra_fb_pan_display(struct fb_var_screeninfo *var,
 
 	/*
 	 * Do nothing if display parameters are same as current values.
-	 */
 	if ((var->xoffset == tegra_fb->curr_xoffset) &&
 	    (var->yoffset == tegra_fb->curr_yoffset))
 		return 0;
+	 */
 
 	if (!tegra_fb->win->cur_handle) {
 		flush_start = info->screen_base + (var->yoffset * info->fix.line_length);

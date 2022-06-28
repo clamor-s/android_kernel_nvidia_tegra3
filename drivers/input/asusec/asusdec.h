@@ -14,7 +14,7 @@
 #define DOCK_SPEAKER			0	// 0: not ready, 1: ready
 #define DOCK_USB				1	// 0: not ready, 1: ready
 #define BATTERY_DRIVER			1	// 0: not ready, 1: ready
-#define AUDIO_DOCK_STAND		1	// 0: not ready, 1: ready
+#define AUDIO_DOCK_STAND		0	// 0: not ready, 1: ready
 /*
  * Debug Utility
  */

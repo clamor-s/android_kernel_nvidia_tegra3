@@ -59,7 +59,6 @@
 #include "../clock.h"
 
 #include <linux/regulator/consumer.h>
-extern bool isRecording;
 static struct timeval t_suspend;
 #define TEGRA_CRC_LATCHED_DELAY		34
 #define cardhu_hdmi_hpd                        TEGRA_GPIO_PN7
@@ -1690,11 +1689,6 @@ static bool _tegra_dc_enable(struct tegra_dc *dc)
 void tegra_dc_enable(struct tegra_dc *dc)
 {
 	mutex_lock(&dc->lock);
-
-        if (tegra3_get_project_id() == TEGRA3_PROJECT_TF201
-                        && isRecording) {
-                gpio_set_value(cardhu_bl_enb, 1);
-        }
 
 	if (!dc->enabled)
 		dc->enabled = _tegra_dc_enable(dc);

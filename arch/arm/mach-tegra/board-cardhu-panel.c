@@ -260,11 +260,6 @@ static int cardhu_backlight_notify(struct device *unused, int brightness)
 		gpio_set_value(e1506_bl_enb, !!brightness);
 	}
 
-        if (tegra3_get_project_id() == TEGRA3_PROJECT_TF201
-                        && isRecording) {
-                gpio_set_value(cardhu_bl_enb, 1);
-        }
-
 	/* SD brightness is a percentage, 8-bit value. */
 	brightness = (brightness * cur_sd_brightness) / 255;
 
@@ -625,8 +620,7 @@ static int cardhu_hdmi_disable(void)
         //or is recording
         if ( tegra3_get_project_id() == TEGRA3_PROJECT_P1801
                         && scalar_update_status!=2
-                        && scalar_update_status!=-1
-                        && !isRecording){
+                        && scalar_update_status!=-1){
                 msleep(300);
                 gpio_set_value(EN_VDD_BL, 0);
         }

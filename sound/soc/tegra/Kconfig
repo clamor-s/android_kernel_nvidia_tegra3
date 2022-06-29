@@ -280,9 +280,3 @@ config SND_SOC_TEGRA_MAX98095
 	  boards using the MAX98095 codec. Currently, only supported board is
 	  Cardhu.
 
-config AUDIO_DOCK
-        bool
-        default n
-        help
-          Say Y or N here if you want to add support for accessory audio dock.
-

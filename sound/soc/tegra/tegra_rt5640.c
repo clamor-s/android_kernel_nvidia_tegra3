@@ -62,8 +62,6 @@
 #define GPIO_EXT_MIC_EN BIT(3)
 #define GPIO_HP_DET     BIT(4)
 
-extern void audio_dock_init(void);
-
 struct tegra_rt5640 {
 	struct tegra_asoc_utils_data util_data;
 	struct tegra_asoc_platform_data *pdata;
@@ -790,7 +788,7 @@ static int __init tegra_rt5640_modinit(void)
 		return 0;
 	}
 	ret = platform_driver_register(&tegra_rt5640_driver);
-	audio_dock_init();
+
 	printk(KERN_INFO "%s- #####\n", __func__);
 	return ret;
 }

@@ -130,8 +130,6 @@ extern int PRJ_ID;
 //extern unsigned int factory_mode;
 extern int force_headphone;
 //extern int audio_dock_in_out(u8 status);
-extern bool isAudioStandIn(void);
-extern int audio_stand_route(bool);
 
 void set_lineout_state(bool status)
 {
@@ -470,21 +468,13 @@ static void lineout_work_queue(struct work_struct *work)
 		return;
 	}
 
-	/* check if audio stand is inserted */
-	if(!isAudioStandIn()){
-		printk("LINEOUT: No Audio Stand in\n");
-		return;
-	}
-
 	if (gpio_get_value(LINEOUT_GPIO) == 0){
 		printk("LINEOUT: LineOut inserted\n");
 		lineout_alive = true;
-		audio_stand_route(true);
 		switch_set_state(&hs_data->ldev, LINEOUT_IN);
 	}else if(gpio_get_value(LINEOUT_GPIO)){
 		printk("LINEOUT: LineOut removed\n");
 		lineout_alive = false;
-		audio_stand_route(false);
 		switch_set_state(&hs_data->ldev, NO_DEVICE);
 	}
 
@@ -516,11 +506,9 @@ static int lineout_config_gpio()
 		switch_set_state(&hs_data->ldev, NO_DEVICE);
 	}else if (gpio_get_value(LINEOUT_GPIO) == 0){
 		lineout_alive = true;
-		audio_stand_route(true);
 		switch_set_state(&hs_data->ldev, LINEOUT_IN);
 	}else{
 		lineout_alive = false;
-		audio_stand_route(false);
 		switch_set_state(&hs_data->ldev, NO_DEVICE);
 	}
 

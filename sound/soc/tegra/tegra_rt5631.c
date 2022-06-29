@@ -43,7 +43,6 @@ extern bool lineout_alive;
 extern struct snd_soc_codec *rt5631_audio_codec;
 static bool audio_dock_in = false;
 static bool audio_stand_in = false;
-extern void audio_dock_init(void);
 
 static int tegra_rt5631_hw_params(struct snd_pcm_substream *substream,
 					struct snd_pcm_hw_params *params)
@@ -333,7 +332,6 @@ static int __init tegra_rt5631_modinit(void)
 	}
 
 	ret = platform_driver_register(&tegra_rt5631_driver);
-	audio_dock_init();
 
 	printk(KERN_INFO "%s- #####\n", __func__);
 	return ret;

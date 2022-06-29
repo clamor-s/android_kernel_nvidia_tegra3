@@ -104,7 +104,6 @@ static bool DMIC_flag= true;   //heaset = false;
 #endif
 struct snd_soc_codec *rt5631_audio_codec = NULL;
 EXPORT_SYMBOL(rt5631_audio_codec) ;
-extern bool headset_alive;
 
 extern int asusAudiodec_i2c_write_data(char *data, int length);
 extern int asusAudiodec_i2c_read_data(char *data, int length);
@@ -1906,8 +1905,6 @@ static int rt5631_hifi_pcm_params(struct snd_pcm_substream *substream,
 	if (SNDRV_PCM_STREAM_CAPTURE == stream) {
 		if (rt5631->dmic_used_flag)
 			rt5631_set_dmic_params(codec, params);
-		if(headset_alive && !rt5631->dmic_used_flag)
-			rt5631_close_dmic(codec);
 	}
 
 	rt5631_write_mask(codec, RT5631_SDP_CTRL, iface, SDP_I2S_DL_MASK);

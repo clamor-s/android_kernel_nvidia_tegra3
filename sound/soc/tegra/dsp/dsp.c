@@ -79,8 +79,7 @@ static int fm34_resume(struct device *dev);
 static void fm34_reconfig(void) ;
 extern int hs_micbias_power(int on);
 
-
-extern bool headset_alive;
+static bool headset_alive = false;
 
 static const struct i2c_device_id fm34_id[] = {
 	{DEVICE_NAME, 0},

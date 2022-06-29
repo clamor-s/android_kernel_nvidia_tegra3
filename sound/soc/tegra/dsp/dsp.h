@@ -77,13 +77,4 @@ u8 TF700T_enable_NS[]={
 #define TEGRA_GPIO_PW4	180 //AUDIO_MCLK
 #define TEGRA_GPIO_PP3  123 //DAP3_SCLK
 
-struct fm34_chip {
-	struct input_dev	*indev;
-	struct i2c_client	*client;
-	struct attribute_group  attrs;
-	struct miscdevice misc_dev;
-	int 		        status;
-	u8 i2c_data[32];
-};
-
 #endif

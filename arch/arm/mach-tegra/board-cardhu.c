@@ -337,12 +337,6 @@ static struct tegra_i2c_platform_data cardhu_i2c5_platform_data = {
 	.arb_recovery = arb_lost_recovery,
 };
 
-#ifdef CONFIG_SND_SOC_TEGRA_RT5631
-static struct i2c_board_info __initdata rt5631_board_info = {
-	I2C_BOARD_INFO("rt5631", 0x1a),
-};
-#endif
-
 #ifdef CONFIG_DSP_FM34
 static const struct i2c_board_info cardhu_dsp_board_info = {
 	I2C_BOARD_INFO("dsp_fm34", 0x60),
@@ -411,10 +405,6 @@ static void cardhu_i2c_init(void)
 		i2c_register_board_info(1, cardhu_i2c_aw8ec_info, ARRAY_SIZE(cardhu_i2c_aw8ec_info));
 	default:;
 	}
-
-#ifdef CONFIG_SND_SOC_TEGRA_RT5631
-	i2c_register_board_info(4, &rt5631_board_info, 1);
-#endif
 
 #ifdef CONFIG_DSP_FM34
 	i2c_register_board_info(0, &cardhu_dsp_board_info, 1);

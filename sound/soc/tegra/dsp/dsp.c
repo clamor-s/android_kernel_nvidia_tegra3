@@ -99,59 +99,7 @@ static struct i2c_driver fm34_driver = {
 	.id_table	= fm34_id,
 };
 
-unsigned int fm34_i2c_read(unsigned char AdrHi,unsigned char AdrLo, unsigned char *data)
-{
-	unsigned int ret = 0;
-	u8 cmd_addr[5] = {0};
-	u8 cmd_lo[4] = {0};
-	u8 cmd_hi[4] = {0};
-
-	cmd_addr[0] = 0xFC;
-	cmd_addr[1] = 0xF3;
-	cmd_addr[2] = 0x37;
-	cmd_addr[3] = AdrHi;
-	cmd_addr[4] = AdrLo;
-
-	cmd_lo[0] = 0xFC;
-	cmd_lo[1] = 0xF3;
-	cmd_lo[2] = 0x60;
-	cmd_lo[3] = 0x25;
-
-	cmd_hi[0] = 0xFC;
-	cmd_hi[1] = 0xF3;
-	cmd_hi[2] = 0x60;
-	cmd_hi[3] = 0x26;
-
-	//set read addr
-	ret = i2c_master_send(dsp_chip->client, cmd_addr, 5);
-	if(ret != 5){
-		FM34_INFO("DSP set read reg  fail\n");
-	}
-
-	ret = i2c_master_send(dsp_chip->client, cmd_lo, 4);
-	if(ret != 4){
-		FM34_INFO("DSP send read low byte addr fail\n");
-	}
-
-	ret = i2c_master_recv(dsp_chip->client, data, 1);
-	if(ret != 1){
-		FM34_INFO("DSP read low byte fail, data: %d\n", data[0]);
-	}
-
-	ret = i2c_master_send(dsp_chip->client, cmd_hi, 4);
-	if(ret != 4){
-		FM34_INFO("DSP send read high byte  addr fail\n");
-	}
-
-	ret = i2c_master_recv(dsp_chip->client, (data + 1), 1);
-	if(ret != 1){
-		FM34_INFO("DSP read high byte fail,  data: %d\n", data[1]);
-	}
-
-	return ret;
-}
-
-int fm34_i2c_retry(struct i2c_client *fm34_i2c_client, u8* parameter, size_t size)
+static int fm34_i2c_retry(struct i2c_client *fm34_i2c_client, u8* parameter, size_t size)
 {
 	int retry = 0;
 	int ret = -1;
@@ -181,7 +129,7 @@ static void fm34_reset_DSP(void)
 	msleep(100);
 }
 
-int fm34_config_DSP(void)
+static int fm34_config_DSP(void)
 {
 	int ret=0;
 	struct i2c_msg msg[3];
@@ -238,91 +186,12 @@ int fm34_config_DSP(void)
 
 	return ret;
 }
-EXPORT_SYMBOL(fm34_config_DSP);
 
-static ssize_t fm34_show(struct device *class, struct device_attribute *attr, char *buf)
+static void fm34_reconfig(void)
 {
-	struct fm34_chip *data = i2c_get_clientdata(to_i2c_client(class));
-
-	return sprintf(buf, "%d\n", data->status);
-}
-
-
-static unsigned int fm34_read_chipID(void)
-{
-	unsigned char data[2] = {0};
-	fm34_i2c_read(0x38, 0x00, data);
-
-	return ((data[1]  << 8) | data[0]);
-}
-
-static int fm34_check_i2c(struct i2c_client *client)
-{
-	int ret = -1;
-	struct i2c_msg msg[3];
-	u8 buf1;
-
-	//reset dsp
-	fm34_reset_DSP();
-
-	gpio_set_value(TEGRA_GPIO_PBB6, 1); // Enable DSP
-	msleep(20);
-
-	//access chip to check if acknowledgement.
-	buf1=0xC0;
-	/* Write register */
-	msg[0].addr = dsp_chip->client->addr;
-	msg[0].flags = 0;
-	msg[0].len = 1;
-	msg[0].buf = &buf1;
-
-	ret = i2c_transfer(dsp_chip->client->adapter, msg, 1);
-	if(ret < 0){
-		//FM34_INFO("DSP NOack, Failed to read 0x%x: %d\n", buf1, ret);
-		msleep(50);
-		//reset dsp
-		fm34_reset_DSP();
-		return ret;
-	}
-	else if(ret == 1){ /* reg 0xC0 value should be 1 */
-		//FM34_INFO("DSP ack, read 0x%x: %d\n", buf1, ret);
-		return 0;
-	}
-}
-
-static int fm34_chip_init(struct i2c_client *client)
-{
-	int rc = 0;
-
-	//config RST# pin, default HIGH.
-	rc = gpio_request(TEGRA_GPIO_PO3, "fm34_reset");
-	if (rc) {
-		FM34_ERR("gpio_request failed for input %d\n", TEGRA_GPIO_PO3);
-	}
-
-	rc = gpio_direction_output(TEGRA_GPIO_PO3, 1) ;
-	if (rc) {
-		FM34_ERR("gpio_direction_output failed for input %d\n", TEGRA_GPIO_PO3);
-	}
-	FM34_INFO("GPIO = %d , state = %d\n", TEGRA_GPIO_PO3, gpio_get_value(TEGRA_GPIO_PO3));
-
-	gpio_set_value(TEGRA_GPIO_PO3, 1);
-
-	//config PWDN# pin, default HIGH.
-	rc = gpio_request(TEGRA_GPIO_PBB6, "fm34_pwdn");
-	if (rc) {
-		FM34_ERR("gpio_request failed for input %d\n", TEGRA_GPIO_PBB6);
-	}
-
-	rc = gpio_direction_output(TEGRA_GPIO_PBB6, 1) ;
-	if (rc) {
-		FM34_ERR("gpio_direction_output failed for input %d\n", TEGRA_GPIO_PBB6);
-	}
-	FM34_INFO("GPIO = %d , state = %d\n", TEGRA_GPIO_PBB6, gpio_get_value(TEGRA_GPIO_PBB6));
-
-	gpio_set_value(TEGRA_GPIO_PBB6, 1);
-
-	return 0;
+	FM34_INFO("ReConfigure DSP\n");
+	bConfigured=false;
+	fm34_config_DSP();
 }
 
 int fm34_open(struct inode *inode, struct file *filp)
@@ -522,21 +391,99 @@ struct file_operations fm34_fops = {
 	.release =	fm34_release,
 };
 
+static int fm34_check_i2c(struct i2c_client *client)
+{
+	int ret = -1;
+	struct i2c_msg msg[3];
+	u8 buf1;
 
-static SENSOR_DEVICE_ATTR(dsp_status, S_IRUGO, fm34_show, NULL, 1);
+	//reset dsp
+	fm34_reset_DSP();
 
-static struct attribute *fm34_attr[] = {
-	&sensor_dev_attr_dsp_status.dev_attr.attr,
-	NULL
-};
+	gpio_set_value(TEGRA_GPIO_PBB6, 1); // Enable DSP
+	msleep(20);
 
+	//access chip to check if acknowledgement.
+	buf1=0xC0;
+	/* Write register */
+	msg[0].addr = dsp_chip->client->addr;
+	msg[0].flags = 0;
+	msg[0].len = 1;
+	msg[0].buf = &buf1;
+
+	ret = i2c_transfer(dsp_chip->client->adapter, msg, 1);
+	if(ret < 0){
+		//FM34_INFO("DSP NOack, Failed to read 0x%x: %d\n", buf1, ret);
+		msleep(50);
+		//reset dsp
+		fm34_reset_DSP();
+		return ret;
+	}
+
+	return 0;
+}
+
+static int fm34_chip_init(struct i2c_client *client)
+{
+	int rc = 0;
+
+	//config RST# pin, default HIGH.
+	rc = gpio_request(TEGRA_GPIO_PO3, "fm34_reset");
+	if (rc) {
+		FM34_ERR("gpio_request failed for input %d\n", TEGRA_GPIO_PO3);
+	}
+
+	rc = gpio_direction_output(TEGRA_GPIO_PO3, 1) ;
+	if (rc) {
+		FM34_ERR("gpio_direction_output failed for input %d\n", TEGRA_GPIO_PO3);
+	}
+
+	gpio_set_value(TEGRA_GPIO_PO3, 1);
+
+	//config PWDN# pin, default HIGH.
+	rc = gpio_request(TEGRA_GPIO_PBB6, "fm34_pwdn");
+	if (rc) {
+		FM34_ERR("gpio_request failed for input %d\n", TEGRA_GPIO_PBB6);
+	}
+
+	rc = gpio_direction_output(TEGRA_GPIO_PBB6, 1) ;
+	if (rc) {
+		FM34_ERR("gpio_direction_output failed for input %d\n", TEGRA_GPIO_PBB6);
+	}
+
+	gpio_set_value(TEGRA_GPIO_PBB6, 1);
+
+	return 0;
+}
+
+static void fm34_power_switch_init(void)
+{
+	unsigned dsp_1v8_power_control;
+	int ret = 0;
+	u32 project_info = tegra3_get_project_id();
+
+	if(project_info == TEGRA3_PROJECT_TF201)
+		dsp_1v8_power_control = DSP_POWER_1V8_EN_GPIO_TF201;
+	else if(project_info == TEGRA3_PROJECT_TF300T)
+		dsp_1v8_power_control = DSP_POWER_1V8_EN_GPIO_TF201X;
+	else
+		return;
+
+	//Enalbe dsp power 1.8V
+	ret = gpio_request(dsp_1v8_power_control, "dsp_power_1v8_en");
+	if (ret < 0)
+		pr_err("%s: gpio_request failed for gpio %s\n",
+			__func__, "DSP_POWER_1V8_EN_GPIO");
+	gpio_direction_output(dsp_1v8_power_control, 1);
+
+	pr_info("gpio %d set to %d\n", dsp_1v8_power_control, gpio_get_value(dsp_1v8_power_control));
+}
 
 static int fm34_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct fm34_chip *data;
 	int err;
-	unsigned int chipID = 0;
 
 	dev_dbg(&client->dev, "%s()\n", __func__);
 
@@ -547,42 +494,29 @@ static int fm34_probe(struct i2c_client *client,
 		goto exit;
 	}
 
-	dsp_chip=data;
-	data->status = 0;
+	dsp_chip = data;
 
 	i2c_set_clientdata(client, data);
 	data->client = client;
-	fm34_client= data->client;
+	fm34_client = data->client;
+
+	//Enalbe dsp power 1.8V
+	fm34_power_switch_init();
 
 	data->misc_dev.minor  = MISC_DYNAMIC_MINOR;
 	data->misc_dev.name = DEVICE_NAME;
 	data->misc_dev.fops = &fm34_fops;
 	err = misc_register(&data->misc_dev);
-		if (err) {
-			pr_err("tegra_acc_probe: Unable to register %s misc device\n", data->misc_dev.name);
-		goto exit_free;
-			}
-
-	/* Register sysfs hooks */
-	data->attrs.attrs = fm34_attr;
-	err = sysfs_create_group(&client->dev.kobj, &data->attrs);
 	if (err) {
-		dev_err(&client->dev, "Not able to create the sysfs\n");
+		pr_err("tegra_acc_probe: Unable to register %s misc device\n", data->misc_dev.name);
 		goto exit_free;
 	}
 
 	fm34_chip_init(dsp_chip->client);
 
-	if (fm34_check_i2c(dsp_chip->client) == 0)
-       	data->status = 1;
-	else
-		data->status = 0;
+	fm34_check_i2c(dsp_chip->client);
 
-	bConfigured=false;
-
-	chipID = fm34_read_chipID();
-	if(chipID != 0x395B)
-		printk("DSP stress test: tegra-i2c.0 wrong chip ID = 0x%x\n", chipID);
+	bConfigured = false;
 
 	INIT_DELAYED_WORK(&config_dsp_work, fm34_reconfig);
 	schedule_delayed_work(&config_dsp_work, 0);
@@ -602,19 +536,9 @@ static int fm34_remove(struct i2c_client *client)
 	struct fm34_chip *data = i2c_get_clientdata(client);
 
 	misc_deregister(&data->misc_dev);
-	dev_dbg(&client->dev, "%s()\n", __func__);
-	pr_info("%s()\n", __func__);
-	sysfs_remove_group(&client->dev.kobj, &data->attrs);
-
 	kfree(data);
-	return 0;
-}
 
-void fm34_reconfig(void)
-{
-	FM34_INFO("ReConfigure DSP\n");
-	bConfigured=false;
-	fm34_config_DSP();
+	return 0;
 }
 
 void fm34_power_switch(int state)
@@ -638,68 +562,25 @@ void fm34_power_switch(int state)
 	}
 }
 
-void fm34_power_switch_init(void)
-{
-	unsigned dsp_1v8_power_control;
-	int ret = 0;
-	u32 project_info = tegra3_get_project_id();
-
-	if(project_info == TEGRA3_PROJECT_TF201)
-		dsp_1v8_power_control = DSP_POWER_1V8_EN_GPIO_TF201;
-	else if(project_info == TEGRA3_PROJECT_TF300T)
-		dsp_1v8_power_control = DSP_POWER_1V8_EN_GPIO_TF201X;
-	else
-		return;
-
-	//Enalbe dsp power 1.8V
-	ret = gpio_request(dsp_1v8_power_control, "dsp_power_1v8_en");
-	if (ret < 0)
-		pr_err("%s: gpio_request failed for gpio %s\n",
-			__func__, "DSP_POWER_1V8_EN_GPIO");
-	gpio_direction_output(dsp_1v8_power_control, 1);
-	pr_info("gpio %d set to %d\n", dsp_1v8_power_control, gpio_get_value(dsp_1v8_power_control));
-
-}
-
 static int fm34_suspend(struct device *dev)
 {
-	printk("fm34_suspend+\n");
-	int ret =0;
-
-	gpio_set_value(TEGRA_GPIO_PBB6, 0); /* Bypass DSP*/
+	gpio_set_value(TEGRA_GPIO_PBB6, 0); /* Bypass DSP */
 
 	fm34_power_switch(0);
 
-	gpio_set_value(TEGRA_GPIO_PBB6, 0); /* Bypass DSP */
-
-	printk("fm34_suspend-\n");
 	return 0;
 }
 
 static int fm34_resume(struct device *dev)
 {
-	printk("fm34_resume+\n");
-
 	fm34_power_switch(1);
 
-	printk("fm34_resume-\n");
 	return 0;
 }
 
 static int __init fm34_init(void)
 {
-	int ret;
-
-	printk(KERN_INFO "%s+ #####\n", __func__);
-
-	//Enalbe dsp power 1.8V
-	fm34_power_switch_init();
-
-	pr_info("%s()\n", __func__);
-	ret = i2c_add_driver(&fm34_driver);
-
-	printk(KERN_INFO "%s- #####\n", __func__);
-	return ret;
+	return i2c_add_driver(&fm34_driver);
 }
 
 static void __exit fm34_exit(void)

@@ -337,35 +337,15 @@ static struct tegra_i2c_platform_data cardhu_i2c5_platform_data = {
 	.arb_recovery = arb_lost_recovery,
 };
 
-static struct wm8903_platform_data cardhu_wm8903_pdata = {
-	.irq_active_low = 0,
-	.micdet_cfg = 0,
-	.micdet_delay = 100,
-	.gpio_base = CARDHU_GPIO_WM8903(0),
-	.gpio_cfg = {
-		(WM8903_GPn_FN_DMIC_LR_CLK_OUTPUT << WM8903_GP1_FN_SHIFT),
-		(WM8903_GPn_FN_DMIC_LR_CLK_OUTPUT << WM8903_GP2_FN_SHIFT) |
-			WM8903_GP2_DIR,
-		0,
-		WM8903_GPIO_NO_CONFIG,
-		WM8903_GPIO_NO_CONFIG,
-	},
-};
-
-static struct i2c_board_info __initdata wm8903_board_info = {
-	I2C_BOARD_INFO("wm8903", 0x1a),
-	.platform_data = &cardhu_wm8903_pdata,
-};
-
+#ifdef CONFIG_SND_SOC_TEGRA_RT5631
 static struct i2c_board_info __initdata rt5631_board_info = {
 	I2C_BOARD_INFO("rt5631", 0x1a),
 };
+#endif
 
 #ifdef CONFIG_DSP_FM34
-static const struct i2c_board_info cardhu_dsp_board_info[] = {
-	{
-		I2C_BOARD_INFO("dsp_fm34", 0x60),
-	},
+static const struct i2c_board_info cardhu_dsp_board_info = {
+	I2C_BOARD_INFO("dsp_fm34", 0x60),
 };
 #endif
 
@@ -432,22 +412,12 @@ static void cardhu_i2c_init(void)
 	default:;
 	}
 
-	switch (project_info) {
-		case TEGRA3_PROJECT_TF201:
-		case TEGRA3_PROJECT_TF300TG:
-		case TEGRA3_PROJECT_TF700T:
-		case TEGRA3_PROJECT_TF300TL:
-			i2c_register_board_info(4, &rt5631_board_info, 1);
-			break;
-		case TEGRA3_PROJECT_TF300T:
-			i2c_register_board_info(4, &wm8903_board_info, 1);
-			break;
-		default:
-			break;
-	}
+#ifdef CONFIG_SND_SOC_TEGRA_RT5631
+	i2c_register_board_info(4, &rt5631_board_info, 1);
+#endif
 
 #ifdef CONFIG_DSP_FM34
-	i2c_register_board_info(0, cardhu_dsp_board_info, 1);
+	i2c_register_board_info(0, &cardhu_dsp_board_info, 1);
 #endif
 }
 

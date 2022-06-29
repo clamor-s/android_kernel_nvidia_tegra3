@@ -234,30 +234,30 @@ int tegra_asoc_utils_set_rate(struct tegra_asoc_utils_data *data, int srate,
 	data->set_mclk = 0;
 
 	reenable_clock = false;
-	if(tegra_is_clk_enabled(data->clk_pll_a)) {
-		clk_disable(data->clk_pll_a);
-		reenable_clock = true;
-	}
-	err = clk_set_rate(data->clk_pll_a, new_baseclock);
-	if (err) {
-		dev_err(data->dev, "Can't set pll_a rate: %d\n", err);
-		return err;
-	}
-	if(reenable_clock)
-		clk_enable(data->clk_pll_a);
+//	if(tegra_is_clk_enabled(data->clk_pll_a)) {
+//		clk_disable(data->clk_pll_a);
+//		reenable_clock = true;
+//	}
+//	err = clk_set_rate(data->clk_pll_a, new_baseclock);
+//	if (err) {
+//		dev_err(data->dev, "Can't set pll_a rate: %d\n", err);
+//		return err;
+//	}
+//	if(reenable_clock)
+//		clk_enable(data->clk_pll_a);
 
-	reenable_clock = false;
-	if(tegra_is_clk_enabled(data->clk_pll_a_out0)) {
-		clk_disable(data->clk_pll_a_out0);
-		reenable_clock = true;
-	}
-	err = clk_set_rate(data->clk_pll_a_out0, mclk);
-	if (err) {
-		dev_err(data->dev, "Can't set clk_pll_a_out0 rate: %d\n", err);
-		return err;
-	}
-	if(reenable_clock)
-		clk_enable(data->clk_pll_a_out0);
+//	reenable_clock = false;
+//	if(tegra_is_clk_enabled(data->clk_pll_a_out0)) {
+//		clk_disable(data->clk_pll_a_out0);
+//		reenable_clock = true;
+//	}
+//	err = clk_set_rate(data->clk_pll_a_out0, mclk);
+//	if (err) {
+//		dev_err(data->dev, "Can't set clk_pll_a_out0 rate: %d\n", err);
+//		return err;
+//	}
+//	if(reenable_clock)
+//		clk_enable(data->clk_pll_a_out0);
 
 
 	data->set_baseclock = new_baseclock;
@@ -279,21 +279,21 @@ EXPORT_SYMBOL_GPL(tegra_asoc_utils_lock_clk_rate);
 
 int tegra_asoc_utils_clk_enable(struct tegra_asoc_utils_data *data)
 {
-	int err;
-
-	err = clk_enable(data->clk_cdev1);
-	if (err) {
-		dev_err(data->dev, "Can't enable cdev1: %d\n", err);
-		return err;
-	}
-
+//	int err;
+//
+//	err = clk_enable(data->clk_cdev1);
+//	if (err) {
+//		dev_err(data->dev, "Can't enable cdev1: %d\n", err);
+//		return err;
+//	}
+//
 	return 0;
 }
 EXPORT_SYMBOL_GPL(tegra_asoc_utils_clk_enable);
 
 int tegra_asoc_utils_clk_disable(struct tegra_asoc_utils_data *data)
 {
-	clk_disable(data->clk_cdev1);
+//	clk_disable(data->clk_cdev1);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(tegra_asoc_utils_clk_disable);
@@ -326,33 +326,33 @@ int tegra_asoc_utils_init(struct tegra_asoc_utils_data *data,
 	data->dev = dev;
 	data->card = card;
 
-	data->clk_pll_p_out1 = clk_get_sys(NULL, "pll_p_out1");
-	if (IS_ERR(data->clk_pll_p_out1)) {
-		dev_err(data->dev, "Can't retrieve clk pll_p_out1\n");
-		ret = PTR_ERR(data->clk_pll_p_out1);
-		goto err;
-	}
+//	data->clk_pll_p_out1 = clk_get_sys(NULL, "pll_p_out1");
+//	if (IS_ERR(data->clk_pll_p_out1)) {
+//		dev_err(data->dev, "Can't retrieve clk pll_p_out1\n");
+//		ret = PTR_ERR(data->clk_pll_p_out1);
+//		goto err;
+//	}
 
-	data->clk_pll_a = clk_get_sys(NULL, "pll_a");
-	if (IS_ERR(data->clk_pll_a)) {
-		dev_err(data->dev, "Can't retrieve clk pll_a\n");
-		ret = PTR_ERR(data->clk_pll_a);
-		goto err_put_pll_p_out1;
-	}
+//	data->clk_pll_a = clk_get_sys(NULL, "pll_a");
+//	if (IS_ERR(data->clk_pll_a)) {
+//		dev_err(data->dev, "Can't retrieve clk pll_a\n");
+//		ret = PTR_ERR(data->clk_pll_a);
+//		goto err_put_pll_p_out1;
+//	}
 
-	data->clk_pll_a_out0 = clk_get_sys(NULL, "pll_a_out0");
-	if (IS_ERR(data->clk_pll_a_out0)) {
-		dev_err(data->dev, "Can't retrieve clk pll_a_out0\n");
-		ret = PTR_ERR(data->clk_pll_a_out0);
-		goto err_put_pll_a;
-	}
+//	data->clk_pll_a_out0 = clk_get_sys(NULL, "pll_a_out0");
+//	if (IS_ERR(data->clk_pll_a_out0)) {
+//		dev_err(data->dev, "Can't retrieve clk pll_a_out0\n");
+//		ret = PTR_ERR(data->clk_pll_a_out0);
+//		goto err_put_pll_a;
+//	}
 
-	data->clk_m = clk_get_sys(NULL, "clk_m");
-	if (IS_ERR(data->clk_m)) {
-		dev_err(data->dev, "Can't retrieve clk clk_m\n");
-		ret = PTR_ERR(data->clk_m);
-		goto err;
-	}
+//	data->clk_m = clk_get_sys(NULL, "clk_m");
+//	if (IS_ERR(data->clk_m)) {
+//		dev_err(data->dev, "Can't retrieve clk clk_m\n");
+//		ret = PTR_ERR(data->clk_m);
+//		goto err;
+//	}
 
 #if defined(CONFIG_ARCH_TEGRA_2x_SOC)
 	data->clk_cdev1 = clk_get_sys(NULL, "cdev1");
@@ -404,11 +404,11 @@ err_put_cdev1:
 #endif
 	clk_put(data->clk_cdev1);
 err_put_pll_a_out0:
-	clk_put(data->clk_pll_a_out0);
+//	clk_put(data->clk_pll_a_out0);
 err_put_pll_a:
-	clk_put(data->clk_pll_a);
+//	clk_put(data->clk_pll_a);
 err_put_pll_p_out1:
-	clk_put(data->clk_pll_p_out1);
+//	clk_put(data->clk_pll_p_out1);
 err:
 	return ret;
 }
@@ -418,24 +418,24 @@ EXPORT_SYMBOL_GPL(tegra_asoc_utils_init);
 int tegra_asoc_utils_set_parent (struct tegra_asoc_utils_data *data,
 				int is_i2s_master)
 {
-	int ret = -ENODEV;
-
-	if (is_i2s_master) {
-		ret = clk_set_parent(data->clk_cdev1, data->clk_pll_a_out0);
-		if (ret) {
-			dev_err(data->dev, "Can't set clk cdev1/extern1 parent");
-			return ret;
-		}
-	} else {
-		if(clk_get_rate(data->clk_m) == 26000000)
-			clk_set_rate(data->clk_cdev1, 13000000);
-
-		ret = clk_set_parent(data->clk_cdev1, data->clk_m);
-		if (ret) {
-			dev_err(data->dev, "Can't set clk cdev1/extern1 parent");
-			return ret;
-		}
-	}
+//	int ret = -ENODEV;
+//
+//	if (is_i2s_master) {
+//		ret = clk_set_parent(data->clk_cdev1, data->clk_pll_a_out0);
+//		if (ret) {
+//			dev_err(data->dev, "Can't set clk cdev1/extern1 parent");
+//			return ret;
+//		}
+//	} else {
+//		if(clk_get_rate(data->clk_m) == 26000000)
+//			clk_set_rate(data->clk_cdev1, 13000000);
+//
+//		ret = clk_set_parent(data->clk_cdev1, data->clk_m);
+//		if (ret) {
+//			dev_err(data->dev, "Can't set clk cdev1/extern1 parent");
+//			return ret;
+//		}
+//	}
 
 	return 0;
 }
@@ -453,14 +453,14 @@ void tegra_asoc_utils_fini(struct tegra_asoc_utils_data *data)
 	if (tegra_is_clk_enabled(data->clk_cdev1))
 		clk_disable(data->clk_cdev1);
 
-	if (!IS_ERR(data->clk_pll_a_out0))
-		clk_put(data->clk_pll_a_out0);
+//	if (!IS_ERR(data->clk_pll_a_out0))
+//		clk_put(data->clk_pll_a_out0);
 
-	if (!IS_ERR(data->clk_pll_a))
-		clk_put(data->clk_pll_a);
+//	if (!IS_ERR(data->clk_pll_a))
+//		clk_put(data->clk_pll_a);
 
-	if (!IS_ERR(data->clk_pll_p_out1))
-		clk_put(data->clk_pll_p_out1);
+//	if (!IS_ERR(data->clk_pll_p_out1))
+//		clk_put(data->clk_pll_p_out1);
 }
 EXPORT_SYMBOL_GPL(tegra_asoc_utils_fini);
 

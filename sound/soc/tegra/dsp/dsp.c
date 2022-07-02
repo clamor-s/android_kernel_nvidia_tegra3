@@ -54,6 +54,21 @@ static int fm34_i2c_retry(struct i2c_client *fm34_i2c_client, u8* parameter, siz
 	return ret;
 }
 
+static void fm34_power_switch(int state)
+{
+	unsigned dsp_1v8_power_control;
+	u32 project_info = tegra3_get_project_id();
+
+	if (project_info == TEGRA3_PROJECT_TF201)
+		dsp_1v8_power_control = DSP_POWER_1V8_EN_GPIO_TF201;
+	else if (project_info == TEGRA3_PROJECT_TF300T)
+		dsp_1v8_power_control = DSP_POWER_1V8_EN_GPIO_TF201X;
+	else
+		return;
+
+	gpio_set_value(dsp_1v8_power_control, state);
+}
+
 static void fm34_reset_DSP(void)
 {
 	gpio_set_value(TEGRA_GPIO_PO3, 0);
@@ -63,47 +78,36 @@ static void fm34_reset_DSP(void)
 	msleep(100);
 }
 
-static int fm34_check_i2c(struct i2c_client *client)
+static int fm34_config_DSP(struct fm34_chip *data)
 {
-	int ret = -1;
+	int ret;
+	int input_config_length;
+	u8 *input_config_table;
+
 	struct i2c_msg msg[3];
-	u8 buf1;
+	u8 buf1 = 0xC0;
+
+	fm34_power_switch(1);
 
 	//reset dsp
 	fm34_reset_DSP();
 
-	gpio_set_value(TEGRA_GPIO_PBB6, 1); // Enable DSP
+	gpio_set_value(TEGRA_GPIO_PBB6, 1); // Enable DSP Bypass
 	msleep(20);
 
-	//access chip to check if acknowledgement.
-	buf1 = 0xC0;
 	/* Write register */
-	msg[0].addr = client->addr;
+	msg[0].addr = data->client->addr;
 	msg[0].flags = 0;
 	msg[0].len = 1;
 	msg[0].buf = &buf1;
 
-	ret = i2c_transfer(client->adapter, msg, 1);
+	ret = i2c_transfer(data->client->adapter, msg, 1);
 	if(ret < 0){
 		//FM34_INFO("DSP NOack, Failed to read 0x%x: %d\n", buf1, ret);
 		msleep(50);
-		//reset dsp
 		fm34_reset_DSP();
 		return ret;
 	}
-
-	return 0;
-}
-
-static int fm34_config_DSP(struct fm34_chip *data)
-{
-	int ret = 0;
-	int input_config_length;
-	u8 *input_config_table;
-
-	ret = fm34_check_i2c(data->client);
-	if (ret)
-		FM34_INFO("I2c CHECK FAILED\n");
 
 	if (tegra3_get_project_id() == TEGRA3_PROJECT_TF700T) {
 		FM34_INFO("Load TF700T DSP parameters\n");
@@ -137,30 +141,26 @@ static int fm34_gpio_init(void)
 		FM34_ERR("gpio_request failed for input %d\n", TEGRA_GPIO_PO3);
 	}
 
-	rc = gpio_direction_output(TEGRA_GPIO_PO3, 1) ;
+	rc = gpio_direction_output(TEGRA_GPIO_PO3, 1);
 	if (rc) {
 		FM34_ERR("gpio_direction_output failed for input %d\n", TEGRA_GPIO_PO3);
 	}
 
-	gpio_set_value(TEGRA_GPIO_PO3, 1);
-
 	//config PWDN# pin, default HIGH.
-	rc = gpio_request(TEGRA_GPIO_PBB6, "fm34_pwdn");
+	rc = gpio_request(TEGRA_GPIO_PBB6, "fm34_bypass");
 	if (rc) {
 		FM34_ERR("gpio_request failed for input %d\n", TEGRA_GPIO_PBB6);
 	}
 
-	rc = gpio_direction_output(TEGRA_GPIO_PBB6, 1) ;
+	rc = gpio_direction_output(TEGRA_GPIO_PBB6, 0);
 	if (rc) {
 		FM34_ERR("gpio_direction_output failed for input %d\n", TEGRA_GPIO_PBB6);
 	}
 
-	gpio_set_value(TEGRA_GPIO_PBB6, 1);
-
 	return 0;
 }
 
-static void fm34_power_switch_init(void)
+static void fm34_regulator_get(void)
 {
 	unsigned dsp_1v8_power_control;
 	int ret = 0;
@@ -173,13 +173,13 @@ static void fm34_power_switch_init(void)
 	else
 		return;
 
-	//Enalbe dsp power 1.8V
+	//Request dsp power 1.8V
 	ret = gpio_request(dsp_1v8_power_control, "dsp_power_1v8_en");
 	if (ret < 0)
 		pr_err("%s: gpio_request failed for gpio %s\n",
 			__func__, "DSP_POWER_1V8_EN_GPIO");
 
-	gpio_direction_output(dsp_1v8_power_control, 1);
+	gpio_direction_output(dsp_1v8_power_control, 0);
 }
 
 static int fm34_probe(struct i2c_client *client,
@@ -195,8 +195,8 @@ static int fm34_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, data);
 	data->client = client;
 
-	//Enalbe dsp power 1.8V
-	fm34_power_switch_init();
+	//Request dsp power 1.8V
+	fm34_regulator_get();
 
 	fm34_gpio_init();
 
@@ -216,21 +216,6 @@ static int fm34_remove(struct i2c_client *client)
 	return 0;
 }
 
-static void fm34_power_switch(int state)
-{
-	unsigned dsp_1v8_power_control;
-	u32 project_info = tegra3_get_project_id();
-
-	if (project_info == TEGRA3_PROJECT_TF201)
-		dsp_1v8_power_control = DSP_POWER_1V8_EN_GPIO_TF201;
-	else if (project_info == TEGRA3_PROJECT_TF300T)
-		dsp_1v8_power_control = DSP_POWER_1V8_EN_GPIO_TF201X;
-	else
-		return;
-
-	gpio_set_value(dsp_1v8_power_control, state);
-}
-
 static int fm34_suspend(struct device *dev)
 {
 	gpio_set_value(TEGRA_GPIO_PBB6, 0); /* Bypass DSP */
@@ -245,7 +230,6 @@ static int fm34_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct fm34_chip *data = i2c_get_clientdata(client);
 
-	fm34_power_switch(1);
 	fm34_config_DSP(data);
 
 	return 0;

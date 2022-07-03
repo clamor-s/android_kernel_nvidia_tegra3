@@ -1,3 +1,4 @@
+#include <linux/clk.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
@@ -12,9 +13,6 @@
 #include <linux/sched.h>
 
 #include <asm/gpio.h>
-
-#include <linux/miscdevice.h>
-#include <linux/fs.h>
 #include <asm/ioctl.h>
 #include <asm/uaccess.h>
 #include <linux/delay.h>
@@ -26,9 +24,11 @@
 #include <linux/gpio.h>
 
 #include <linux/workqueue.h>
-#include <linux/delay.h>
-#include "dsp.h"
+
+#include <mach/clk.h>
 #include <mach/board-cardhu-misc.h>
+
+#include "dsp.h"
 
 #define MAX_RETRY (5)
 
@@ -37,6 +37,9 @@
 
 struct fm34_chip {
 	struct i2c_client	*client;
+
+	struct clk *clk_cdev1;
+	struct clk *clk_out1;
 };
 
 static int fm34_i2c_retry(struct i2c_client *fm34_i2c_client, u8* parameter, size_t size)
@@ -131,6 +134,49 @@ static int fm34_config_DSP(struct fm34_chip *data)
 	return ret;
 }
 
+// taken from tegra_asoc_utils_init
+static int fm34_clk_init(struct fm34_chip *data)
+{
+	struct device *dev = &data->client->dev;
+	int ret;
+
+#if defined(CONFIG_ARCH_TEGRA_2x_SOC)
+	data->clk_cdev1 = clk_get_sys(NULL, "cdev1");
+#else
+	data->clk_cdev1 = clk_get_sys("extern1", NULL);
+#endif
+	if (IS_ERR(data->clk_cdev1)) {
+		dev_err(dev, "Can't retrieve clk cdev1\n");
+		return PTR_ERR(data->clk_cdev1);
+	}
+
+	ret = clk_enable(data->clk_cdev1);
+	if (ret) {
+		dev_err(dev, "Can't enable clk cdev1/extern1");
+		clk_put(data->clk_cdev1);
+		return ret;
+	}
+
+#if defined(CONFIG_ARCH_TEGRA_3x_SOC)
+	data->clk_out1 = clk_get_sys("clk_out_1", "extern1");
+	if (IS_ERR(data->clk_out1)) {
+		dev_err(dev, "Can't retrieve clk out1\n");
+		clk_put(data->clk_cdev1);
+		return PTR_ERR(data->clk_out1);
+	}
+
+	ret = clk_enable(data->clk_out1);
+	if (ret) {
+		dev_err(dev, "Can't enable clk out1");
+		clk_put(data->clk_out1);
+		clk_put(data->clk_cdev1);
+		return ret;
+	}
+#endif
+
+	return 0;
+}
+
 static int fm34_gpio_init(void)
 {
 	int rc = 0;
@@ -186,7 +232,7 @@ static int fm34_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct fm34_chip *data;
-	int err;
+	int ret;
 
 	data = devm_kzalloc(&client->dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
@@ -194,6 +240,10 @@ static int fm34_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, data);
 	data->client = client;
+
+	ret = fm34_clk_init(data);
+	if (ret)
+		return ret;
 
 	//Request dsp power 1.8V
 	fm34_regulator_get();
@@ -207,10 +257,26 @@ static int fm34_probe(struct i2c_client *client,
 	return 0;
 }
 
+// taken from tegra_asoc_utils_fini
+static void fm34_clk_remove(struct fm34_chip *data)
+{
+#if defined(CONFIG_ARCH_TEGRA_3x_SOC)
+	if (!IS_ERR(data->clk_out1))
+		clk_put(data->clk_out1);
+#endif
+
+	clk_put(data->clk_cdev1);
+	/* Just to make sure that clk_cdev1 should turn off in case if it is
+	 * switched on by some codec whose hw switch is not registered.*/
+	if (tegra_is_clk_enabled(data->clk_cdev1))
+		clk_disable(data->clk_cdev1);
+}
+
 static int fm34_remove(struct i2c_client *client)
 {
 	struct fm34_chip *data = i2c_get_clientdata(client);
 
+	fm34_clk_remove(data);
 	kfree(data);
 
 	return 0;

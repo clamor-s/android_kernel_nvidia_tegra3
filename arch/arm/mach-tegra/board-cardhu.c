@@ -657,35 +657,6 @@ static struct platform_device tegra_rtc_device = {
 	.num_resources = ARRAY_SIZE(tegra_rtc_resources),
 };
 
-static struct tegra_asoc_platform_data cardhu_audio_wm8903_pdata = {
-	.gpio_spkr_en		= TEGRA_GPIO_SPKR_EN,
-	.gpio_hp_det		= TEGRA_GPIO_HP_DET,
-	.gpio_hp_mute		= -1,
-	.gpio_int_mic_en	= -1,
-	.gpio_ext_mic_en	= -1,
-	.i2s_param[HIFI_CODEC]	= {
-		.audio_port_id	= 0,
-		.is_i2s_master	= 1,
-		.i2s_mode	= TEGRA_DAIFMT_I2S,
-	},
-	.i2s_param[BASEBAND]	= {
-		.audio_port_id	= -1,
-	},
-	.i2s_param[BT_SCO]	= {
-		.audio_port_id	= 3,
-		.is_i2s_master	= 1,
-		.i2s_mode	= TEGRA_DAIFMT_DSP_A,
-	},
-};
-
-static struct platform_device cardhu_audio_device = {
-	.name	= "tegra-snd-codec",
-        .id     = 0,
-        .dev    = {
-                .platform_data = &cardhu_audio_wm8903_pdata,
-        },
-};
-
 static struct platform_device *cardhu_devices[] __initdata = {
 	&tegra_pmu_device,
 	&tegra_rtc_device,
@@ -718,7 +689,6 @@ static struct platform_device *cardhu_devices[] __initdata = {
 	&cardhu_bcm4329_rfkill_device,
 #endif
 	&tegra_pcm_device,
-	&cardhu_audio_device,
 	&tegra_hda_device,
 	&tegra_cec_device,
 #if defined(CONFIG_CRYPTO_DEV_TEGRA_AES)
